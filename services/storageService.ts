@@ -220,14 +220,20 @@ export const importAttendanceFromCSV = (csvText: string): { success: number, err
             continue;
         }
 
-        // Validate date format YYYY-MM-DD
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-            errors.push(`Row ${i+1}: Invalid date format '${date}'. Use YYYY-MM-DD.`);
-            continue;
+        let formattedDate = date;
+        // Check for DD/MM/YYYY
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(date)) {
+             const [d, m, y] = date.split('/');
+             formattedDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+             formattedDate = date;
+        } else {
+             errors.push(`Row ${i+1}: Invalid date format '${date}'. Use DD/MM/YYYY or YYYY-MM-DD.`);
+             continue;
         }
 
         try {
-            logAttendance(emp.id, status as AttendanceStatus, date, ot);
+            logAttendance(emp.id, status as AttendanceStatus, formattedDate, ot);
             success++;
         } catch (e) {
             errors.push(`Row ${i+1}: Error saving record.`);

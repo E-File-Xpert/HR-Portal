@@ -610,8 +610,9 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
     
     const downloadSample = () => {
         const headers = "EmployeeCode,Date,Status,Overtime";
-        const row1 = "10001,2025-12-01,P,2";
-        const row2 = "10002,2025-12-01,A,0";
+        // Use DD/MM/YYYY format for sample
+        const row1 = "10001,01/12/2025,P,2";
+        const row2 = "10002,01/12/2025,A,0";
         const content = `${headers}\n${row1}\n${row2}`;
         const blob = new Blob([content], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
@@ -655,7 +656,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
                 <textarea 
                     value={csv} 
                     onChange={e => setCsv(e.target.value)} 
-                    placeholder="Format: EmployeeCode, Date(YYYY-MM-DD), Status(P/A/etc), OT(number)"
+                    placeholder="Format: EmployeeCode, Date(DD/MM/YYYY), Status(P/A/etc), OT(number)"
                     className="flex-1 w-full p-4 border rounded font-mono text-xs"
                 />
                 <div className="flex justify-end gap-2 mt-4">
