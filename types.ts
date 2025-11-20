@@ -120,3 +120,20 @@ export interface PublicHoliday {
   date: string; // YYYY-MM-DD
   name: string;
 }
+
+// --- User / Auth Types ---
+
+export enum UserRole {
+    ADMIN = 'Admin',
+    HR = 'HR',
+    SUPERVISOR = 'Supervisor',
+    ENGINEER = 'Engineer'
+}
+
+export interface SystemUser {
+    username: string;
+    password: string; // In real app, this must be hashed
+    name: string;
+    role: UserRole;
+    active: boolean;
+}

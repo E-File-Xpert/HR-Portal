@@ -1,6 +1,6 @@
 
-import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails } from "../types";
-import { MOCK_EMPLOYEES, STORAGE_KEYS, DEFAULT_COMPANIES } from "../constants";
+import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole } from "../types";
+import { MOCK_EMPLOYEES, STORAGE_KEYS, DEFAULT_COMPANIES, DEFAULT_ADMIN } from "../constants";
 
 // Simulate database initialization
 const initStorage = () => {
@@ -18,6 +18,10 @@ const initStorage = () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.COMPANIES)) {
       localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(DEFAULT_COMPANIES));
+  }
+  // Initialize default admin user
+  if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([DEFAULT_ADMIN]));
   }
 };
 
@@ -503,4 +507,29 @@ export const updateCompany = (oldName: string, newName: string): string[] => {
         }
     }
     return companies;
+}
+
+// --- USER / AUTH MANAGEMENT ---
+
+export const getSystemUsers = (): SystemUser[] => {
+    initStorage();
+    const data = localStorage.getItem(STORAGE_KEYS.USERS);
+    return data ? JSON.parse(data) : [DEFAULT_ADMIN];
+}
+
+export const addSystemUser = (user: SystemUser): SystemUser[] => {
+    const users = getSystemUsers();
+    if (users.find(u => u.username === user.username)) {
+        throw new Error("Username already exists");
+    }
+    users.push(user);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    return users;
+}
+
+export const deleteSystemUser = (username: string): SystemUser[] => {
+    const users = getSystemUsers();
+    const updated = users.filter(u => u.username !== username);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updated));
+    return updated;
 }

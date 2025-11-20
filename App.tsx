@@ -38,7 +38,9 @@ import {
   Ban,
   ZoomIn,
   ZoomOut,
-  RotateCcw
+  RotateCcw,
+  Shield,
+  Lock
 } from 'lucide-react';
 
 import { 
@@ -51,7 +53,9 @@ import {
   SalaryStructure,
   PublicHoliday,
   OffboardingDetails,
-  EmployeeDocuments
+  EmployeeDocuments,
+  SystemUser,
+  UserRole
 } from './types';
 import { 
   getEmployees, 
@@ -74,7 +78,10 @@ import {
   getCompanies,
   addCompany,
   updateCompany,
-  deleteCompany
+  deleteCompany,
+  getSystemUsers,
+  addSystemUser,
+  deleteSystemUser
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS } from './constants';
 import SmartCommand from './components/SmartCommand';
@@ -161,6 +168,156 @@ const getDateColor = (dateStr: string | undefined, type: 'standard' | 'passport'
 };
 
 // --- Sub Components ---
+
+const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        const users = getSystemUsers();
+        const user = users.find(u => u.username === username && u.password === password && u.active);
+        if (user) {
+            onLogin(user);
+        } else {
+            setError("Invalid credentials or inactive account");
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+            <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+                <div className="flex justify-center mb-6">
+                    <div className="bg-indigo-600 p-3 rounded-lg">
+                        <Building2 className="w-8 h-8 text-white" />
+                    </div>
+                </div>
+                <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">ShiftSync AI</h2>
+                <p className="text-center text-gray-500 mb-8">Secure Workforce Management Portal</p>
+                
+                {error && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-center font-medium">{error}</div>}
+                
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input 
+                            type="text" 
+                            value={username}
+                            onChange={e => setUsername(e.target.value)}
+                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Enter username"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input 
+                            type="password" 
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Enter password"
+                        />
+                    </div>
+                    <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg">
+                        Login to Portal
+                    </button>
+                </form>
+
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100 text-center">
+                    <p className="text-xs text-blue-600 font-bold uppercase mb-1">Demo Credentials</p>
+                    <p className="text-sm text-blue-800">
+                        Username: <span className="font-mono font-bold">admin</span>
+                    </p>
+                    <p className="text-sm text-blue-800">
+                        Password: <span className="font-mono font-bold">123</span>
+                    </p>
+                </div>
+                
+                <p className="text-xs text-center text-gray-400 mt-6">Protected System. Authorized Access Only.</p>
+            </div>
+        </div>
+    )
+}
+
+const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+    const [users, setUsers] = useState<SystemUser[]>(getSystemUsers());
+    const [formData, setFormData] = useState({ username: '', password: '', name: '', role: UserRole.HR });
+
+    const handleAdd = () => {
+        if (!formData.username || !formData.password || !formData.name) return;
+        try {
+            const updated = addSystemUser({ ...formData, active: true });
+            setUsers(updated);
+            setFormData({ username: '', password: '', name: '', role: UserRole.HR });
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    const handleDelete = (username: string) => {
+        if (username === 'admin') {
+            alert("Cannot delete the main admin account.");
+            return;
+        }
+        if (confirm(`Delete user ${username}?`)) {
+            const updated = deleteSystemUser(username);
+            setUsers(updated);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:hidden">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold">System User Management</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500"/></button>
+                </div>
+
+                {/* Add User */}
+                <div className="bg-gray-50 p-4 rounded-lg mb-6 grid grid-cols-2 gap-4">
+                     <input placeholder="Username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="p-2 border rounded text-sm" />
+                     <input placeholder="Password" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="p-2 border rounded text-sm" />
+                     <input placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="p-2 border rounded text-sm" />
+                     <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="p-2 border rounded text-sm">
+                         {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                     </select>
+                     <button onClick={handleAdd} className="col-span-2 bg-indigo-600 text-white py-2 rounded text-sm hover:bg-indigo-700">Create User</button>
+                </div>
+
+                {/* User List */}
+                <div className="overflow-y-auto max-h-64">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-100 font-bold">
+                            <tr>
+                                <th className="p-2">Username</th>
+                                <th className="p-2">Name</th>
+                                <th className="p-2">Role</th>
+                                <th className="p-2 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {users.map(u => (
+                                <tr key={u.username} className="border-b">
+                                    <td className="p-2 font-mono">{u.username}</td>
+                                    <td className="p-2">{u.name}</td>
+                                    <td className="p-2"><span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{u.role}</span></td>
+                                    <td className="p-2 text-right">
+                                        {u.username !== 'admin' && (
+                                            <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: { isOpen: boolean, onClose: () => void, companies: string[], onDataChange: (companies: string[]) => void }) => {
     const [newName, setNewName] = useState('');
@@ -1380,6 +1537,7 @@ const LeaveRequestModal = ({ onClose, onSave, employees }: { onClose: () => void
 
 function App() {
   // State
+  const [currentUser, setCurrentUser] = useState<SystemUser | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -1410,14 +1568,17 @@ function App() {
   const [showPayslip, setShowPayslip] = useState<Employee | null>(null);
   const [showRehire, setShowRehire] = useState<Employee | null>(null);
   const [showHolidays, setShowHolidays] = useState(false);
+  const [showUserManagement, setShowUserManagement] = useState(false);
 
   // Load Data
   useEffect(() => {
-    setEmployees(getEmployees());
-    setLeaveRequests(getLeaveRequests());
-    setCompanies(getCompanies());
-    loadAttendanceForMonth(currentDate);
-  }, [currentDate]);
+    if (currentUser) {
+        setEmployees(getEmployees());
+        setLeaveRequests(getLeaveRequests());
+        setCompanies(getCompanies());
+        loadAttendanceForMonth(currentDate);
+    }
+  }, [currentUser, currentDate]);
 
   const loadAttendanceForMonth = (date: Date) => {
     const y = date.getFullYear();
@@ -1439,35 +1600,46 @@ function App() {
     loadAttendanceForMonth(currentDate);
   };
 
+  // Filter Logic
   const filteredEmployees = employees.filter(e => {
-    // Filter by Company
     if (selectedCompany !== 'All' && e.company !== selectedCompany) return false;
-    // Filter by Status
     if (selectedStatus !== 'All' && e.status !== selectedStatus) return false;
-    // Filter by Team
     if (selectedTeam !== 'All' && e.team !== selectedTeam) return false;
     
-    // Filter out employees who haven't joined yet based on View Month
     const viewMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const joining = new Date(e.joiningDate);
     if (joining > new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)) return false;
 
-    // Filter out Offboarded employees from future months
     if (e.status === 'Inactive' && e.offboardingDetails?.exitDate) {
         const exitDate = new Date(e.offboardingDetails.exitDate);
-        // If exit date is BEFORE the start of the current view month, don't show them
         if (exitDate < viewMonthStart) return false;
     }
-
     return true;
   });
 
   const monthDays = getMonthDays(currentDate);
 
+  // If not logged in, show login screen
+  if (!currentUser) {
+      return <LoginScreen onLogin={setCurrentUser} />;
+  }
+
+  // Dashboard Stats Logic
+  const activeEmployees = employees.filter(e => e.active);
+  const companyStats = activeEmployees.reduce((acc, curr) => {
+      acc[curr.company] = (acc[curr.company] || 0) + 1;
+      return acc;
+  }, {} as Record<string, number>);
+  
+  const teamStats = activeEmployees.reduce((acc, curr) => {
+      acc[curr.team] = (acc[curr.team] || 0) + 1;
+      return acc;
+  }, {} as Record<string, number>);
+
   return (
     <div className="min-h-screen flex flex-col print:bg-white">
       {/* Header */}
-      <header className="bg-white shadow-sm z-10 print:hidden">
+      <header className={`bg-white shadow-sm z-10 print:hidden`}>
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-600 p-2 rounded-lg">
@@ -1481,11 +1653,13 @@ function App() {
           
           <div className="flex items-center gap-4">
              {/* Filters */}
-             <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)} className="text-sm border rounded-lg px-3 py-2 bg-gray-50">
+             <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)} className="text-sm border rounded-lg px-3 py-2 bg-gray-50 max-w-[200px]">
                  <option value="All">All Companies</option>
                  {companies.map(c => <option key={c} value={c}>{c}</option>)}
              </select>
-             <button onClick={() => setShowManageCompanies(true)} className="p-2 text-gray-500 hover:bg-gray-100 rounded"><Settings className="w-4 h-4"/></button>
+             {currentUser.role === UserRole.ADMIN && (
+                <button onClick={() => setShowManageCompanies(true)} className="p-2 text-gray-500 hover:bg-gray-100 rounded"><Settings className="w-4 h-4"/></button>
+             )}
 
              <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className="text-sm border rounded-lg px-3 py-2 bg-gray-50">
                  <option value="All">All Status</option>
@@ -1501,8 +1675,14 @@ function App() {
              </select>
 
              <div className="h-6 w-px bg-gray-300 mx-2"></div>
-             <div className="flex items-center gap-2 text-sm font-medium text-gray-700 bg-white border px-3 py-1.5 rounded-lg">
-                 <User className="w-4 h-4"/> Admin
+             <div className="flex items-center gap-2">
+                 <div className="text-right hidden md:block">
+                     <p className="text-sm font-bold text-gray-900">{currentUser.name}</p>
+                     <p className="text-xs text-gray-500">{currentUser.role}</p>
+                 </div>
+                 <button onClick={() => setCurrentUser(null)} className="p-2 text-gray-500 hover:text-red-600" title="Logout">
+                     <LogOut className="w-5 h-5"/>
+                 </button>
              </div>
           </div>
         </div>
@@ -1537,21 +1717,93 @@ function App() {
         </div>
       </nav>
 
-      <main className="flex-1 max-w-full mx-auto px-4 py-6 w-full overflow-hidden">
+      <main className={`flex-1 max-w-full mx-auto px-4 py-6 w-full overflow-hidden ${showPayslip ? 'print:hidden' : ''}`}>
         {activeTab === 'dashboard' && (
-             <div className="max-w-5xl mx-auto space-y-6">
+             <div className="max-w-6xl mx-auto space-y-6">
+                 <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
+                    {currentUser.role === UserRole.ADMIN && (
+                        <button onClick={() => setShowUserManagement(true)} className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-gray-800">
+                            <Shield className="w-4 h-4"/> User Management
+                        </button>
+                    )}
+                 </div>
+
                  <SmartCommand onUpdate={handleRefresh} />
+                 
+                 {/* Main Stats */}
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="text-gray-500 text-sm">Total Staff</p>
-                                <h3 className="text-2xl font-bold text-gray-900 mt-1">{employees.filter(e => e.active).length}</h3>
-                            </div>
-                            <div className="p-2 bg-blue-50 rounded-lg"><Users className="w-5 h-5 text-blue-600"/></div>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                        <div>
+                            <p className="text-gray-500 text-sm">Total Active Staff</p>
+                            <h3 className="text-3xl font-bold text-indigo-600 mt-1">{employees.filter(e => e.active).length}</h3>
                         </div>
+                        <div className="p-3 bg-indigo-50 rounded-lg"><Users className="w-6 h-6 text-indigo-600"/></div>
                     </div>
-                    {/* Add more stats as needed */}
+                    
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                         <div>
+                            <p className="text-gray-500 text-sm">Internal Team</p>
+                            <h3 className="text-3xl font-bold text-green-600 mt-1">{teamStats['Internal Team'] || 0}</h3>
+                        </div>
+                         <div className="p-3 bg-green-50 rounded-lg"><Users className="w-6 h-6 text-green-600"/></div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                         <div>
+                            <p className="text-gray-500 text-sm">External Team</p>
+                            <h3 className="text-3xl font-bold text-orange-600 mt-1">{teamStats['External Team'] || 0}</h3>
+                        </div>
+                         <div className="p-3 bg-orange-50 rounded-lg"><Users className="w-6 h-6 text-orange-600"/></div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                         <div>
+                            <p className="text-gray-500 text-sm">Office Staff</p>
+                            <h3 className="text-3xl font-bold text-blue-600 mt-1">{teamStats['Office Staff'] || 0}</h3>
+                        </div>
+                         <div className="p-3 bg-blue-50 rounded-lg"><Briefcase className="w-6 h-6 text-blue-600"/></div>
+                    </div>
+                 </div>
+
+                 {/* Company Breakdown */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Building2 className="w-5 h-5"/> Staff by Company</h3>
+                         <div className="space-y-3">
+                             {Object.entries(companyStats).map(([company, count]) => (
+                                 <div key={company} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                     <span className="text-sm font-medium text-gray-700 truncate max-w-[300px]" title={company}>{company}</span>
+                                     <span className="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-1 rounded-full">{count}</span>
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+
+                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Lock className="w-5 h-5"/> Admin Details</h3>
+                         <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-xl text-white">
+                             <div className="flex items-center gap-4 mb-4">
+                                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-xl font-bold">
+                                     {currentUser.name.charAt(0)}
+                                 </div>
+                                 <div>
+                                     <h4 className="text-lg font-bold">{currentUser.name}</h4>
+                                     <p className="text-sm text-gray-300">@{currentUser.username}</p>
+                                 </div>
+                             </div>
+                             <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
+                                 <div>
+                                     <p className="text-xs text-gray-400">Role</p>
+                                     <p className="font-medium">{currentUser.role}</p>
+                                 </div>
+                                 <div>
+                                     <p className="text-xs text-gray-400">Access Level</p>
+                                     <p className="font-medium">Full Access</p>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
                  </div>
              </div>
         )}
@@ -1809,7 +2061,8 @@ function App() {
                     </button>
                  </div>
 
-                 <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200 print:shadow-none print:border-none">
+                 {/* Using print:block ensures the table is visible when printing, while the surrounding layout hides */}
+                 <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200 print:shadow-none print:border-none print:w-full">
                      <div className="overflow-x-auto">
                          <table className="w-full text-xs text-left border-collapse">
                              <thead className="bg-gray-50 text-gray-700 font-bold border-b">
@@ -1875,6 +2128,11 @@ function App() {
         onClose={() => setShowManageCompanies(false)} 
         companies={companies}
         onDataChange={setCompanies}
+      />
+
+      <UserManagementModal 
+        isOpen={showUserManagement}
+        onClose={() => setShowUserManagement(false)}
       />
 
       <AttendanceActionModal 

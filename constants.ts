@@ -1,5 +1,5 @@
 
-import { Employee, StaffType, ShiftType } from "./types";
+import { Employee, StaffType, ShiftType, SystemUser, UserRole } from "./types";
 
 export const DEFAULT_COMPANIES = [
   'PERFECT STAR FACILITIES MANAGEMENT SERVICES LLC - SPC',
@@ -14,6 +14,15 @@ export const PUBLIC_HOLIDAYS = [
     '2025-12-02', // UAE National Day
     '2025-12-25'  // Christmas
 ];
+
+// Default Admin User
+export const DEFAULT_ADMIN: SystemUser = {
+    username: 'admin',
+    password: '123', // Simple for demo
+    name: 'System Administrator',
+    role: UserRole.ADMIN,
+    active: true
+};
 
 // Data extracted from PDF Pages 1-4
 export const MOCK_EMPLOYEES: Employee[] = [
@@ -103,4 +112,5 @@ export const STORAGE_KEYS = {
   LEAVE_REQUESTS: 'shiftsync_leave_requests_v1',
   PUBLIC_HOLIDAYS: 'shiftsync_public_holidays_v1',
   COMPANIES: 'shiftsync_companies_v1',
+  USERS: 'shiftsync_users_v1',
 };
