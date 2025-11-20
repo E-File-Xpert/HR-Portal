@@ -130,10 +130,25 @@ export enum UserRole {
     ENGINEER = 'Engineer'
 }
 
+export interface UserPermissions {
+    canViewDashboard: boolean;
+    canManageEmployees: boolean; // Add, Edit, Onboard, Offboard
+    canViewDirectory: boolean;
+    canManageAttendance: boolean; // Edit Timesheet
+    canViewTimesheet: boolean;
+    canManageLeaves: boolean; // Approve/Reject
+    canViewPayroll: boolean;
+    canManagePayroll: boolean; // Print, view salary details
+    canViewReports: boolean;
+    canManageUsers: boolean; // Create other users
+    canManageSettings: boolean; // Companies, Holidays
+}
+
 export interface SystemUser {
     username: string;
     password: string; // In real app, this must be hashed
     name: string;
     role: UserRole;
     active: boolean;
+    permissions: UserPermissions;
 }

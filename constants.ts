@@ -21,7 +21,20 @@ export const DEFAULT_ADMIN: SystemUser = {
     password: '123', // Simple for demo
     name: 'System Administrator',
     role: UserRole.ADMIN,
-    active: true
+    active: true,
+    permissions: {
+        canViewDashboard: true,
+        canManageEmployees: true,
+        canViewDirectory: true,
+        canManageAttendance: true,
+        canViewTimesheet: true,
+        canManageLeaves: true,
+        canViewPayroll: true,
+        canManagePayroll: true,
+        canViewReports: true,
+        canManageUsers: true,
+        canManageSettings: true
+    }
 };
 
 // Data extracted from PDF Pages 1-4
