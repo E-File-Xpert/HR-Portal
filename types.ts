@@ -30,6 +30,7 @@ export interface OffboardingDetails {
   netSettlement: number;
   assetsReturned: boolean;
   notes: string;
+  documents?: { name: string; data: string }[]; // Array of Base64 files
 }
 
 export interface EmployeeDocuments {

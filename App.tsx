@@ -1197,8 +1197,29 @@ const OnboardingWizard = ({ onClose, onComplete, companies }: { onClose: () => v
                   )}
                    {step === 5 && (
                       <div className="space-y-4">
-                          <h3 className="font-bold text-lg">Review</h3>
-                          <pre className="bg-gray-50 p-4 rounded text-sm">{JSON.stringify(data, null, 2)}</pre>
+                          <h3 className="font-bold text-lg">Review & Confirm</h3>
+                          <div className="bg-gray-50 p-4 rounded text-sm space-y-4">
+                             <div className="grid grid-cols-2 gap-4 border-b pb-2">
+                                 <div><span className="font-bold block text-xs text-gray-500">Name</span>{data.name}</div>
+                                 <div><span className="font-bold block text-xs text-gray-500">Code</span>{data.code}</div>
+                                 <div><span className="font-bold block text-xs text-gray-500">Company</span>{data.company}</div>
+                                 <div><span className="font-bold block text-xs text-gray-500">Designation</span>{data.designation}</div>
+                             </div>
+                             <div className="grid grid-cols-2 gap-4 border-b pb-2">
+                                 <div><span className="font-bold block text-xs text-gray-500">Joining Date</span>{data.joiningDate}</div>
+                                 <div><span className="font-bold block text-xs text-gray-500">Team</span>{data.team}</div>
+                                 <div><span className="font-bold block text-xs text-gray-500">Location</span>{data.workLocation}</div>
+                             </div>
+                             <div className="grid grid-cols-4 gap-2">
+                                 <div><span className="font-bold block text-xs text-gray-500">Basic</span>{data.salary?.basic}</div>
+                                 <div><span className="font-bold block text-xs text-gray-500">Housing</span>{data.salary?.housing}</div>
+                                 <div><span className="font-bold block text-xs text-gray-500">Transport</span>{data.salary?.transport}</div>
+                                 <div><span className="font-bold block text-xs text-gray-500">Other</span>{data.salary?.other}</div>
+                             </div>
+                             <div className="text-xs text-gray-500 italic mt-2">
+                                Documents: {data.documents?.emiratesId ? 'Emirates ID provided' : 'Pending'}, {data.documents?.passportNumber ? 'Passport provided' : 'Pending'}
+                             </div>
+                          </div>
                       </div>
                   )}
               </div>
@@ -1226,8 +1247,31 @@ const OffboardingWizard = ({ employee, onClose, onComplete }: { employee: Employ
         deductions: 0,
         netSettlement: 0,
         assetsReturned: false,
-        notes: ''
+        notes: '',
+        documents: []
     });
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const base64 = ev.target?.result as string;
+                setDetails(prev => ({
+                    ...prev,
+                    documents: [...(prev.documents || []), { name: file.name, data: base64 }]
+                }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeDocument = (index: number) => {
+        setDetails(prev => ({
+            ...prev,
+            documents: prev.documents?.filter((_, i) => i !== index)
+        }));
+    };
 
     const submit = () => {
         offboardEmployee(employee.id, details);
@@ -1260,7 +1304,28 @@ const OffboardingWizard = ({ employee, onClose, onComplete }: { employee: Employ
                         <input type="checkbox" checked={details.assetsReturned} onChange={e => setDetails({...details, assetsReturned: e.target.checked})} />
                         <label>All assets returned</label>
                     </div>
+
+                    <h3 className="font-bold border-b pb-2 pt-2">Documents (e.g. Resignation Letter)</h3>
+                    <div className="border border-dashed border-gray-300 p-4 rounded-lg text-center">
+                        <input type="file" onChange={handleFileUpload} className="hidden" id="offboard-doc-upload" accept=".pdf,.jpg,.png,.doc,.docx" />
+                        <label htmlFor="offboard-doc-upload" className="cursor-pointer text-indigo-600 hover:text-indigo-800 flex flex-col items-center">
+                             <Upload className="w-6 h-6 mb-1"/>
+                             <span className="text-sm">Click to upload document</span>
+                        </label>
+                    </div>
+                    {details.documents && details.documents.length > 0 && (
+                        <ul className="space-y-2 mt-2">
+                            {details.documents.map((doc, idx) => (
+                                <li key={idx} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
+                                    <span className="truncate max-w-[200px]" title={doc.name}>{doc.name}</span>
+                                    <button onClick={() => removeDocument(idx)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
                     <button onClick={submit} className="w-full bg-red-600 text-white py-2 rounded hover:bg-red-700 mt-4">Confirm Offboarding</button>
+                    <button onClick={onClose} className="w-full text-gray-600 py-2 rounded hover:bg-gray-100 mt-2">Cancel</button>
                 </div>
             </div>
         </div>
