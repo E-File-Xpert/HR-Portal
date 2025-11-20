@@ -94,7 +94,7 @@ import {
   saveAboutData
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS } from './constants';
-import SmartCommand from './components/SmartCommand';
+// SmartCommand removed as requested
 
 // --- Constants for Grid ---
 const ATTENDANCE_LEGEND = {
@@ -251,7 +251,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
                         <Building2 className="w-8 h-8 text-white" />
                     </div>
                 </div>
-                <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">ShiftSync AI</h2>
+                <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">ShiftSync</h2>
                 <p className="text-center text-gray-500 mb-8">Secure Workforce Management Portal</p>
                 
                 {error && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-center font-medium">{error}</div>}
@@ -281,16 +281,8 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
                         Login to Portal
                     </button>
                 </form>
-
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100 text-center">
-                    <p className="text-xs text-blue-600 font-bold uppercase mb-1">Demo Credentials</p>
-                    <p className="text-sm text-blue-800 mb-1">
-                        Admin: <span className="font-mono font-bold">admin</span> | <span className="font-mono font-bold">123</span>
-                    </p>
-                     <p className="text-sm text-blue-800">
-                        Creator: <span className="font-mono font-bold">abdulkaderp3010@gmail.com</span> | <span className="font-mono font-bold">Haji@3010</span>
-                    </p>
-                </div>
+                
+                {/* Hidden: Demo credentials removed as requested */}
             </div>
         </div>
     )
@@ -404,7 +396,8 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map(u => (
+                            {/* Hiding Creator from the list completely so others cannot see/edit/delete it */}
+                            {users.filter(u => u.role !== UserRole.CREATOR).map(u => (
                                 <tr key={u.username} className="border-b">
                                     <td className="p-2 font-mono">{u.username}</td>
                                     <td className="p-2">{u.name}</td>
@@ -413,10 +406,9 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                                         {Object.values(u.permissions || {}).filter(Boolean).length} active permissions
                                     </td>
                                     <td className="p-2 text-right">
-                                        {u.role !== UserRole.CREATOR && u.username !== 'admin' && (
+                                        {u.username !== 'admin' && (
                                             <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
                                         )}
-                                        {u.role === UserRole.CREATOR && <span className="text-xs text-gray-400 italic">Protected</span>}
                                     </td>
                                 </tr>
                             ))}
@@ -567,10 +559,6 @@ const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
                             </p>
                         </div>
                     )}
-                    
-                    <div className="mt-8 text-center">
-                        <p className="text-xs text-gray-400">Application Built with ShiftSync AI Technology</p>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1669,7 +1657,7 @@ function App() {
               <Building2 className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">ShiftSync AI</h1>
+              <h1 className="text-xl font-bold text-gray-900">ShiftSync</h1>
               <p className="text-xs text-gray-500">Smart Workforce Management</p>
             </div>
           </div>
@@ -1745,7 +1733,7 @@ function App() {
                     )}
                  </div>
 
-                 {currentUser.permissions.canManageAttendance && <SmartCommand onUpdate={handleRefresh} />}
+                 {/* AI Smart Log Removed */}
                  
                  {/* Main Stats - Clickable for Drill Down */}
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

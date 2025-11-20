@@ -1,5 +1,5 @@
 {
-  "name": "ShiftSync AI",
-  "description": "A smart attendance management system for office staff and rotational workers, featuring Gemini-powered natural language logging and CSV export compatible with Google Sheets.",
+  "name": "ShiftSync",
+  "description": "A smart attendance management system for office staff and rotational workers, featuring natural language logging and CSV export compatible with Google Sheets.",
   "requestFramePermissions": []
 }
