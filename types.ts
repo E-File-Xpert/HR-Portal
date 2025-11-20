@@ -121,9 +121,19 @@ export interface PublicHoliday {
   name: string;
 }
 
+export interface AboutData {
+    name: string;
+    title: string;
+    bio: string;
+    profileImage: string; // Base64
+    email: string;
+    contactInfo: string;
+}
+
 // --- User / Auth Types ---
 
 export enum UserRole {
+    CREATOR = 'Creator', // Special Super Admin
     ADMIN = 'Admin',
     HR = 'HR',
     SUPERVISOR = 'Supervisor',

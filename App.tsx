@@ -43,7 +43,9 @@ import {
   Lock,
   CheckSquare,
   Square,
-  FileIcon
+  FileIcon,
+  Info,
+  Camera
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -60,7 +62,8 @@ import {
   EmployeeDocuments,
   SystemUser,
   UserRole,
-  UserPermissions
+  UserPermissions,
+  AboutData
 } from './types';
 import { 
   getEmployees, 
@@ -86,7 +89,9 @@ import {
   deleteCompany,
   getSystemUsers,
   addSystemUser,
-  deleteSystemUser
+  deleteSystemUser,
+  getAboutData,
+  saveAboutData
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS } from './constants';
 import SmartCommand from './components/SmartCommand';
@@ -279,11 +284,11 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
 
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100 text-center">
                     <p className="text-xs text-blue-600 font-bold uppercase mb-1">Demo Credentials</p>
-                    <p className="text-sm text-blue-800">
-                        Username: <span className="font-mono font-bold">admin</span>
+                    <p className="text-sm text-blue-800 mb-1">
+                        Admin: <span className="font-mono font-bold">admin</span> | <span className="font-mono font-bold">123</span>
                     </p>
-                    <p className="text-sm text-blue-800">
-                        Password: <span className="font-mono font-bold">123</span>
+                     <p className="text-sm text-blue-800">
+                        Creator: <span className="font-mono font-bold">abdulkaderp3010@gmail.com</span> | <span className="font-mono font-bold">Haji@3010</span>
                     </p>
                 </div>
             </div>
@@ -324,13 +329,13 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
     };
 
     const handleDelete = (username: string) => {
-        if (username === 'admin') {
-            alert("Cannot delete the main admin account.");
-            return;
-        }
-        if (confirm(`Delete user ${username}?`)) {
-            const updated = deleteSystemUser(username);
-            setUsers(updated);
+        try {
+            if (confirm(`Delete user ${username}?`)) {
+                const updated = deleteSystemUser(username);
+                setUsers(updated);
+            }
+        } catch (e: any) {
+            alert(e.message);
         }
     };
 
@@ -365,7 +370,7 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                          <input placeholder="Password" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="p-2 border rounded text-sm" />
                          <input placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="p-2 border rounded text-sm" />
                          <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="p-2 border rounded text-sm">
-                             {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                             {Object.values(UserRole).filter(r => r !== UserRole.CREATOR).map(r => <option key={r} value={r}>{r}</option>)}
                          </select>
                      </div>
                      
@@ -408,9 +413,10 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                                         {Object.values(u.permissions || {}).filter(Boolean).length} active permissions
                                     </td>
                                     <td className="p-2 text-right">
-                                        {u.username !== 'admin' && (
+                                        {u.role !== UserRole.CREATOR && u.username !== 'admin' && (
                                             <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
                                         )}
+                                        {u.role === UserRole.CREATOR && <span className="text-xs text-gray-400 italic">Protected</span>}
                                     </td>
                                 </tr>
                             ))}
@@ -421,6 +427,155 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
         </div>
     )
 }
+
+const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
+    const [data, setData] = useState<AboutData>(getAboutData());
+    const [isEditing, setIsEditing] = useState(false);
+    const [formData, setFormData] = useState<AboutData>(data);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const isCreator = currentUser.role === UserRole.CREATOR;
+
+    const handleSave = () => {
+        saveAboutData(formData);
+        setData(formData);
+        setIsEditing(false);
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const base64 = await readFileAsBase64(e.target.files[0]);
+            setFormData(prev => ({ ...prev, profileImage: base64 }));
+        }
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto p-8">
+            <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div className="h-32 bg-gradient-to-r from-indigo-600 to-blue-500 relative">
+                    {isCreator && !isEditing && (
+                        <button 
+                            onClick={() => { setFormData(data); setIsEditing(true); }} 
+                            className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/30 backdrop-blur-sm transition-colors"
+                            title="Edit Page"
+                        >
+                            <Edit className="w-5 h-5" />
+                        </button>
+                    )}
+                </div>
+                
+                <div className="px-8 pb-8 relative">
+                    <div className="relative -mt-16 mb-6 flex justify-center">
+                        <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-200 relative group">
+                            {formData.profileImage ? (
+                                <img src={formData.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                                    <User className="w-16 h-16" />
+                                </div>
+                            )}
+                            
+                            {isEditing && (
+                                <div 
+                                    className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <Camera className="w-8 h-8 text-white" />
+                                </div>
+                            )}
+                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                        </div>
+                    </div>
+
+                    {isEditing ? (
+                        <div className="space-y-4 max-w-lg mx-auto">
+                            <div className="text-center">
+                                <input 
+                                    className="text-3xl font-bold text-center w-full border-b border-gray-300 focus:border-indigo-500 outline-none pb-1" 
+                                    value={formData.name} 
+                                    onChange={e => setFormData({...formData, name: e.target.value})}
+                                    placeholder="Your Name"
+                                />
+                                <input 
+                                    className="text-indigo-600 font-medium text-center w-full mt-2 border-b border-gray-300 focus:border-indigo-500 outline-none pb-1" 
+                                    value={formData.title} 
+                                    onChange={e => setFormData({...formData, title: e.target.value})}
+                                    placeholder="Your Title"
+                                />
+                            </div>
+                            
+                            <div className="bg-gray-50 p-4 rounded-lg border">
+                                <label className="text-xs text-gray-500 uppercase font-bold">Bio / Description</label>
+                                <textarea 
+                                    className="w-full bg-transparent border-b border-gray-300 focus:border-indigo-500 outline-none mt-1 min-h-[100px]"
+                                    value={formData.bio} 
+                                    onChange={e => setFormData({...formData, bio: e.target.value})}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase font-bold">Email</label>
+                                    <input 
+                                        className="w-full border p-2 rounded mt-1"
+                                        value={formData.email}
+                                        onChange={e => setFormData({...formData, email: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase font-bold">Contact Info</label>
+                                    <input 
+                                        className="w-full border p-2 rounded mt-1"
+                                        value={formData.contactInfo}
+                                        onChange={e => setFormData({...formData, contactInfo: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-center gap-4 mt-6">
+                                <button onClick={() => setIsEditing(false)} className="px-6 py-2 rounded-full border text-gray-600 hover:bg-gray-50">Cancel</button>
+                                <button onClick={handleSave} className="px-6 py-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700">Save Changes</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center max-w-2xl mx-auto">
+                            <h1 className="text-3xl font-bold text-gray-900">{data.name}</h1>
+                            <p className="text-indigo-600 font-medium mt-1">{data.title}</p>
+                            
+                            <div className="my-8 text-gray-600 leading-relaxed text-lg">
+                                {data.bio}
+                            </div>
+
+                            <div className="flex justify-center gap-8 text-sm text-gray-500 border-t pt-6">
+                                <div>
+                                    <span className="block font-bold text-gray-700">Email</span>
+                                    {data.email}
+                                </div>
+                                <div>
+                                    <span className="block font-bold text-gray-700">Contact</span>
+                                    {data.contactInfo}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!isCreator && !isEditing && (
+                        <div className="mt-12 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                            <p className="text-sm text-yellow-800 flex items-center justify-center gap-2">
+                                <Lock className="w-4 h-4" />
+                                This page is managed by the creator. To request changes, please contact: <strong>{data.email}</strong>
+                            </p>
+                        </div>
+                    )}
+                    
+                    <div className="mt-8 text-center">
+                        <p className="text-xs text-gray-400">Application Built with ShiftSync AI Technology</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: { isOpen: boolean, onClose: () => void, companies: string[], onDataChange: (companies: string[]) => void }) => {
     const [newName, setNewName] = useState('');
@@ -1496,6 +1651,7 @@ function App() {
     { id: 'leave', label: 'Leave Management', icon: FileText, visible: currentUser.permissions.canManageLeaves }, // Or view leaves
     { id: 'payroll', label: 'Payroll Register', icon: DollarSign, visible: currentUser.permissions.canViewPayroll },
     { id: 'reports', label: 'Reports', icon: BarChart3, visible: currentUser.permissions.canViewReports },
+    { id: 'about', label: 'About', icon: Info, visible: true }, // Everyone can see
   ].filter(t => t.visible);
 
   // Force redirect if active tab is not allowed
@@ -1999,6 +2155,8 @@ function App() {
         )}
 
         {activeTab === 'reports' && <ReportsView employees={employees} attendance={attendance} />}
+        
+        {activeTab === 'about' && <AboutView currentUser={currentUser} />}
       </main>
 
       {/* Modals */}

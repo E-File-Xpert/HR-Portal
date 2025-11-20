@@ -1,6 +1,6 @@
 
-import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole } from "../types";
-import { MOCK_EMPLOYEES, STORAGE_KEYS, DEFAULT_COMPANIES, DEFAULT_ADMIN } from "../constants";
+import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole, AboutData } from "../types";
+import { MOCK_EMPLOYEES, STORAGE_KEYS, DEFAULT_COMPANIES, DEFAULT_ADMIN, CREATOR_USER, DEFAULT_ABOUT_DATA } from "../constants";
 
 // Simulate database initialization
 const initStorage = () => {
@@ -19,9 +19,27 @@ const initStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.COMPANIES)) {
       localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(DEFAULT_COMPANIES));
   }
-  // Initialize default admin user
-  if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([DEFAULT_ADMIN]));
+  if (!localStorage.getItem(STORAGE_KEYS.ABOUT)) {
+      localStorage.setItem(STORAGE_KEYS.ABOUT, JSON.stringify(DEFAULT_ABOUT_DATA));
+  }
+  
+  // Initialize users logic
+  let users: SystemUser[] = [];
+  const usersData = localStorage.getItem(STORAGE_KEYS.USERS);
+  if (usersData) {
+      users = JSON.parse(usersData);
+  } else {
+      users = [DEFAULT_ADMIN];
+  }
+
+  // Ensure Creator exists
+  const creatorExists = users.find(u => u.username === CREATOR_USER.username);
+  if (!creatorExists) {
+      users.push(CREATOR_USER);
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  } else if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
+      // First time init
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   }
 };
 
@@ -535,7 +553,24 @@ export const addSystemUser = (user: SystemUser): SystemUser[] => {
 
 export const deleteSystemUser = (username: string): SystemUser[] => {
     const users = getSystemUsers();
+    // Prevent deleting Admin or Creator
+    if (username === DEFAULT_ADMIN.username || username === CREATOR_USER.username) {
+        throw new Error("Cannot delete this protected system account.");
+    }
     const updated = users.filter(u => u.username !== username);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updated));
     return updated;
+}
+
+// --- ABOUT PAGE ---
+
+export const getAboutData = (): AboutData => {
+    initStorage();
+    const data = localStorage.getItem(STORAGE_KEYS.ABOUT);
+    return data ? JSON.parse(data) : DEFAULT_ABOUT_DATA;
+}
+
+export const saveAboutData = (data: AboutData) => {
+    localStorage.setItem(STORAGE_KEYS.ABOUT, JSON.stringify(data));
+    return data;
 }
