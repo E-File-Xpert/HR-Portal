@@ -119,7 +119,15 @@ export const logAttendance = (
   if (!employee) throw new Error("Employee not found");
 
   const now = new Date();
-  const dateStr = dateOverride || now.toISOString().split('T')[0];
+  // Fix for Timezone Issue: Use local date string construction instead of toISOString() which shifts to UTC
+  let dateStr = dateOverride;
+  if (!dateStr) {
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      dateStr = `${year}-${month}-${day}`;
+  }
+
   const allRecords: AttendanceRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
   
   let recordIndex = allRecords.findIndex(r => r.employeeId === employeeId && r.date === dateStr);
