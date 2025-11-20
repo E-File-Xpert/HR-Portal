@@ -7,8 +7,6 @@ import {
   Download, 
   FileText,
   Building2,
-  ChevronLeft,
-  ChevronRight,
   Printer,
   DollarSign,
   Search,
@@ -45,7 +43,13 @@ import {
   Square,
   FileIcon,
   Info,
-  Camera
+  Camera,
+  RefreshCcw,
+  History,
+  ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -89,12 +93,12 @@ import {
   deleteCompany,
   getSystemUsers,
   addSystemUser,
+  updateSystemUser,
   deleteSystemUser,
   getAboutData,
   saveAboutData
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS } from './constants';
-// SmartCommand removed as requested
 
 // --- Constants for Grid ---
 const ATTENDANCE_LEGEND = {
@@ -281,8 +285,6 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
                         Login to Portal
                     </button>
                 </form>
-                
-                {/* Hidden: Demo credentials removed as requested */}
             </div>
         </div>
     )
@@ -290,6 +292,8 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
 
 const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
     const [users, setUsers] = useState<SystemUser[]>(getSystemUsers());
+    const [isEditing, setIsEditing] = useState(false);
+    const [originalUsername, setOriginalUsername] = useState(''); // For tracking updates
     const [formData, setFormData] = useState({ username: '', password: '', name: '', role: UserRole.HR });
     const [permissions, setPermissions] = useState<UserPermissions>({
         canViewDashboard: true,
@@ -309,15 +313,53 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
         setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const handleAdd = () => {
+    const handleSave = () => {
         if (!formData.username || !formData.password || !formData.name) return;
         try {
-            const updated = addSystemUser({ ...formData, active: true, permissions });
-            setUsers(updated);
-            setFormData({ username: '', password: '', name: '', role: UserRole.HR });
+            const updatedUser = { ...formData, active: true, permissions };
+            let updatedList;
+            if (isEditing) {
+                updatedList = updateSystemUser(originalUsername, updatedUser);
+            } else {
+                updatedList = addSystemUser(updatedUser);
+            }
+            setUsers(updatedList);
+            resetForm();
         } catch (e: any) {
             alert(e.message);
         }
+    };
+
+    const handleEdit = (user: SystemUser) => {
+        setFormData({
+            username: user.username,
+            password: user.password,
+            name: user.name,
+            role: user.role
+        });
+        setPermissions(user.permissions);
+        setOriginalUsername(user.username);
+        setIsEditing(true);
+    };
+
+    const resetForm = () => {
+        setFormData({ username: '', password: '', name: '', role: UserRole.HR });
+        setIsEditing(false);
+        setOriginalUsername('');
+        // Reset permissions default
+        setPermissions({
+            canViewDashboard: true,
+            canManageEmployees: false,
+            canViewDirectory: true,
+            canManageAttendance: false,
+            canViewTimesheet: true,
+            canManageLeaves: false,
+            canViewPayroll: false,
+            canManagePayroll: false,
+            canViewReports: false,
+            canManageUsers: false,
+            canManageSettings: false
+        });
     };
 
     const handleDelete = (username: string) => {
@@ -355,11 +397,14 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                     <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500"/></button>
                 </div>
 
-                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                     <h4 className="font-bold text-sm mb-4">Create New User</h4>
+                <div className={`bg-gray-50 p-4 rounded-lg mb-6 border ${isEditing ? 'border-blue-300 ring-1 ring-blue-200' : 'border-gray-200'}`}>
+                     <div className="flex justify-between items-center mb-4">
+                         <h4 className="font-bold text-sm">{isEditing ? 'Edit User' : 'Create New User'}</h4>
+                         {isEditing && <button onClick={resetForm} className="text-xs text-gray-500 underline">Cancel Edit</button>}
+                     </div>
                      <div className="grid grid-cols-2 gap-4 mb-4">
                          <input placeholder="Username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="p-2 border rounded text-sm" />
-                         <input placeholder="Password" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="p-2 border rounded text-sm" />
+                         <input placeholder="Password" type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="p-2 border rounded text-sm" />
                          <input placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="p-2 border rounded text-sm" />
                          <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="p-2 border rounded text-sm">
                              {Object.values(UserRole).filter(r => r !== UserRole.CREATOR).map(r => <option key={r} value={r}>{r}</option>)}
@@ -381,7 +426,9 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                          </div>
                      </div>
 
-                     <button onClick={handleAdd} className="w-full bg-indigo-600 text-white py-2 rounded text-sm hover:bg-indigo-700">Create System User</button>
+                     <button onClick={handleSave} className={`w-full text-white py-2 rounded text-sm font-medium transition-colors ${isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+                         {isEditing ? 'Update User' : 'Create System User'}
+                     </button>
                 </div>
 
                 <div className="overflow-y-auto flex-1">
@@ -398,16 +445,17 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                         <tbody>
                             {/* Hiding Creator from the list completely so others cannot see/edit/delete it */}
                             {users.filter(u => u.role !== UserRole.CREATOR).map(u => (
-                                <tr key={u.username} className="border-b">
+                                <tr key={u.username} className={`border-b ${isEditing && originalUsername === u.username ? 'bg-blue-50' : ''}`}>
                                     <td className="p-2 font-mono">{u.username}</td>
                                     <td className="p-2">{u.name}</td>
                                     <td className="p-2"><span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{u.role}</span></td>
                                     <td className="p-2 text-xs text-gray-500 max-w-xs truncate" title={JSON.stringify(u.permissions)}>
                                         {Object.values(u.permissions || {}).filter(Boolean).length} active permissions
                                     </td>
-                                    <td className="p-2 text-right">
+                                    <td className="p-2 text-right flex justify-end gap-2">
+                                        <button onClick={() => handleEdit(u)} className="text-blue-500 hover:bg-blue-50 p-1 rounded" title="Edit"><Edit className="w-4 h-4"/></button>
                                         {u.username !== 'admin' && (
-                                            <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4"/></button>
+                                            <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded" title="Delete"><Trash2 className="w-4 h-4"/></button>
                                         )}
                                     </td>
                                 </tr>
@@ -418,6 +466,85 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
             </div>
         </div>
     )
+}
+
+const ExEmployeeDetailsModal = ({ employee, onClose }: { employee: Employee, onClose: () => void }) => {
+    const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+    const details = employee.offboardingDetails;
+
+    if (!details) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:hidden">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col max-h-[85vh]">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">{employee.name}</h3>
+                        <p className="text-sm text-gray-500">{employee.designation} - {employee.code}</p>
+                    </div>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700"/></button>
+                </div>
+                
+                <div className="overflow-y-auto flex-1 space-y-6">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="bg-gray-50 p-3 rounded">
+                            <span className="block text-xs font-bold text-gray-500 uppercase">Offboarding Type</span>
+                            <span className="font-medium text-gray-900">{details.type}</span>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded">
+                            <span className="block text-xs font-bold text-gray-500 uppercase">Exit Date</span>
+                            <span className="font-medium text-gray-900">{details.exitDate}</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Reason & Notes</h4>
+                        <div className="bg-gray-50 p-4 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap">
+                            {details.reason}
+                            {details.notes && <div className="mt-2 pt-2 border-t border-gray-200 text-gray-500 text-xs">{details.notes}</div>}
+                        </div>
+                    </div>
+
+                    <div>
+                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Final Settlement</h4>
+                         <div className="grid grid-cols-3 gap-2 text-sm">
+                             <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Gratuity</span>AED {details.gratuity}</div>
+                             <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Leave Encash</span>AED {details.leaveEncashment}</div>
+                             <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Salary Dues</span>AED {details.salaryDues}</div>
+                             <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Other Dues</span>AED {details.otherDues}</div>
+                             <div className="p-2 border rounded"><span className="block text-xs text-red-500">Deductions</span>AED {details.deductions}</div>
+                             <div className="p-2 border rounded bg-green-50"><span className="block text-xs text-green-700 font-bold">Net Pay</span>AED {(details.gratuity + details.leaveEncashment + details.salaryDues + details.otherDues - details.deductions).toLocaleString()}</div>
+                         </div>
+                         <div className="mt-2 flex items-center gap-2 text-sm">
+                            {details.assetsReturned ? <CheckCircle className="w-4 h-4 text-green-600"/> : <AlertCircle className="w-4 h-4 text-red-600"/>}
+                            <span>Assets Returned: <strong>{details.assetsReturned ? 'Yes' : 'No'}</strong></span>
+                         </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Uploaded Documents</h4>
+                        {details.documents && details.documents.length > 0 ? (
+                            <ul className="space-y-2">
+                                {details.documents.map((doc, idx) => (
+                                    <li key={idx} className="flex justify-between items-center p-2 border rounded hover:bg-gray-50">
+                                        <span className="text-sm text-gray-700 truncate max-w-[300px] flex items-center gap-2">
+                                            <FileText className="w-4 h-4 text-blue-500"/> {doc.name}
+                                        </span>
+                                        <button onClick={() => setPreviewDoc(doc.data)} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium hover:bg-blue-100">
+                                            View
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-gray-400 italic">No documents attached.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+            {previewDoc && <DocumentPreviewModal isOpen={true} onClose={() => setPreviewDoc(null)} attachment={previewDoc} />}
+        </div>
+    );
 }
 
 const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
@@ -555,7 +682,7 @@ const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
                         <div className="mt-12 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
                             <p className="text-sm text-yellow-800 flex items-center justify-center gap-2">
                                 <Lock className="w-4 h-4" />
-                                This page is managed by the creator. To request changes, please contact: <strong>{data.email}</strong>
+                                The About page is managed by the creator and cannot be edited or removed by users.
                             </p>
                         </div>
                     )}
@@ -564,6 +691,8 @@ const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
         </div>
     );
 };
+
+// ... (ManageCompaniesModal, DocumentPreviewModal, AttendanceActionModal, BulkImportModal, EmployeeImportModal, EditEmployeeModal, OnboardingWizard, OffboardingWizard, RehireModal, LeaveRequestModal, HolidayManagementModal, PayslipModal, ReportsView remain unchanged)
 
 const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: { isOpen: boolean, onClose: () => void, companies: string[], onDataChange: (companies: string[]) => void }) => {
     const [newName, setNewName] = useState('');
@@ -941,6 +1070,7 @@ const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
 
 const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
     const [step, setStep] = useState(1);
+    const [rehireMode, setRehireMode] = useState(false);
     const [data, setData] = useState<Partial<Employee>>({
         type: StaffType.WORKER,
         status: 'Active',
@@ -951,37 +1081,123 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
         documents: {}
     });
 
+    const checkCode = (e: React.FocusEvent<HTMLInputElement>) => {
+        const code = e.target.value;
+        if (!code) return;
+        
+        const all = getEmployees();
+        const existing = all.find(emp => emp.code === code);
+
+        if (existing) {
+            if (existing.status === 'Inactive') {
+                if (window.confirm(`Employee "${existing.name}" (Inactive) found with this code. Do you want to re-hire and update details?`)) {
+                    setRehireMode(true);
+                    setData({
+                        ...existing,
+                        status: 'Active',
+                        active: true,
+                        joiningDate: new Date().toISOString().split('T')[0], // Reset Joining Date for new cycle
+                        rejoiningDate: new Date().toISOString().split('T')[0],
+                        rejoiningReason: '',
+                        offboardingDetails: undefined // Clear offboarding
+                    });
+                } else {
+                    // User chose not to rehire, clear code to prevent dup
+                     setData(prev => ({...prev, code: ''}));
+                }
+            } else {
+                alert(`Employee Code ${code} is already active! Please check the directory.`);
+                setData(prev => ({...prev, code: ''}));
+            }
+        } else {
+            setRehireMode(false);
+        }
+    };
+
     const handleSave = () => {
         if (!data.name || !data.code) return alert("Name and Code are required");
-        saveEmployee(data as Employee);
+        
+        let employeeToSave = { ...data } as Employee;
+
+        if (!rehireMode) {
+             // Generate ID for new employee if not present
+             if (!employeeToSave.id) {
+                 employeeToSave.id = Math.random().toString(36).substr(2, 9);
+             }
+             // Ensure joining date is set
+             if(!employeeToSave.joiningDate) employeeToSave.joiningDate = new Date().toISOString().split('T')[0];
+        } else {
+            // Rehire mode validations
+            if (!employeeToSave.rejoiningReason) return alert("Please enter a reason for re-joining in Step 1.");
+            employeeToSave.joiningDate = employeeToSave.rejoiningDate || new Date().toISOString().split('T')[0];
+        }
+        
+        saveEmployee(employeeToSave);
         onComplete();
     };
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl p-6 h-[85vh] flex flex-col">
-                <div className="mb-4">
-                    <h3 className="font-bold text-lg">Onboard New Employee</h3>
-                    <div className="flex gap-2 mt-2">
-                        {[1,2,3,4].map(i => (
-                            <div key={i} className={`h-1 flex-1 rounded-full ${step >= i ? 'bg-indigo-600' : 'bg-gray-200'}`}/>
-                        ))}
+                <div className="mb-4 flex justify-between items-start">
+                    <div>
+                        <h3 className="font-bold text-lg flex items-center gap-2">
+                            {rehireMode ? <><RefreshCcw className="w-5 h-5 text-green-600"/> Re-hiring Employee</> : 'Onboard New Employee'}
+                        </h3>
+                        <div className="flex gap-2 mt-2 w-64">
+                            {[1,2,3,4].map(i => (
+                                <div key={i} className={`h-1 flex-1 rounded-full ${step >= i ? 'bg-indigo-600' : 'bg-gray-200'}`}/>
+                            ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Step {step} of 4</p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 text-right">Step {step} of 4</p>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600"/></button>
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-1">
                     {step === 1 && (
                         <div className="space-y-4">
                             <h4 className="font-bold text-sm text-gray-700">Personal Info</h4>
-                            <input className="w-full p-2 border rounded" placeholder="Employee Code (ID)" value={data.code || ''} onChange={e => setData({...data, code: e.target.value})} />
+                            
+                            <div className="relative">
+                                <input 
+                                    className={`w-full p-2 border rounded ${rehireMode ? 'bg-green-50 border-green-300' : ''}`} 
+                                    placeholder="Employee Code (ID)" 
+                                    value={data.code || ''} 
+                                    onChange={e => setData({...data, code: e.target.value})} 
+                                    onBlur={checkCode}
+                                    disabled={rehireMode} // Lock code in rehire mode
+                                />
+                                {rehireMode && <span className="absolute right-3 top-2.5 text-xs font-bold text-green-600">Existing Record Found</span>}
+                            </div>
+
+                            {rehireMode && (
+                                <div className="bg-green-50 p-3 rounded border border-green-200">
+                                    <label className="block text-xs font-bold text-green-800 mb-1">Reason for Re-joining</label>
+                                    <textarea 
+                                        className="w-full p-2 border rounded text-sm" 
+                                        placeholder="Why is the employee joining again? (e.g. New Contract)"
+                                        value={data.rejoiningReason || ''}
+                                        onChange={e => setData({...data, rejoiningReason: e.target.value})}
+                                    />
+                                </div>
+                            )}
+
                             <input className="w-full p-2 border rounded" placeholder="Full Name" value={data.name || ''} onChange={e => setData({...data, name: e.target.value})} />
                             <select className="w-full p-2 border rounded" value={data.company || ''} onChange={e => setData({...data, company: e.target.value})}>
                                 <option value="">Select Company</option>
                                 {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
                             </select>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs text-gray-500">Joining Date</label><input type="date" className="w-full p-2 border rounded" value={data.joiningDate} onChange={e => setData({...data, joiningDate: e.target.value})} /></div>
+                                <div>
+                                    <label className="text-xs text-gray-500">{rehireMode ? 'New Joining Date' : 'Joining Date'}</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full p-2 border rounded" 
+                                        value={rehireMode ? (data.rejoiningDate || '') : (data.joiningDate || '')} 
+                                        onChange={e => rehireMode ? setData({...data, rejoiningDate: e.target.value}) : setData({...data, joiningDate: e.target.value})} 
+                                    />
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1026,6 +1242,7 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                     {step === 4 && (
                         <div className="space-y-4">
                             <h4 className="font-bold text-sm text-gray-700">Review Details</h4>
+                            {rehireMode && <div className="bg-green-100 text-green-800 p-2 rounded text-center font-bold text-xs mb-2">RE-HIRING EXISTING EMPLOYEE</div>}
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm bg-gray-50 p-4 rounded border">
                                 <span className="text-gray-500">Code:</span><span className="font-mono font-bold">{data.code}</span>
                                 <span className="text-gray-500">Name:</span><span className="font-bold">{data.name}</span>
@@ -1035,6 +1252,12 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                                 <span className="text-gray-500">Total Salary:</span><span className="font-bold text-green-600">
                                     {((data.salary?.basic||0) + (data.salary?.housing||0) + (data.salary?.transport||0) + (data.salary?.other||0)).toLocaleString()}
                                 </span>
+                                {rehireMode && (
+                                    <>
+                                        <span className="text-gray-500">Re-joining:</span><span>{data.rejoiningDate}</span>
+                                        <span className="text-gray-500">Reason:</span><span>{data.rejoiningReason}</span>
+                                    </>
+                                )}
                             </div>
                             <p className="text-center text-gray-500 text-sm mt-4">Please confirm all details are correct before finalizing.</p>
                         </div>
@@ -1043,7 +1266,7 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
 
                 <div className="flex justify-between mt-6 pt-4 border-t">
                     {step > 1 ? <button onClick={() => setStep(step - 1)} className="px-4 py-2 border rounded hover:bg-gray-50">Back</button> : <button onClick={onClose} className="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>}
-                    {step < 4 ? <button onClick={() => setStep(step + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Next</button> : <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"><CheckCircle className="w-4 h-4"/> Complete Onboarding</button>}
+                    {step < 4 ? <button onClick={() => setStep(step + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Next</button> : <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"><CheckCircle className="w-4 h-4"/> {rehireMode ? 'Confirm Re-hire' : 'Complete Onboarding'}</button>}
                 </div>
             </div>
         </div>
@@ -1146,15 +1369,69 @@ const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
 const RehireModal = ({ employee, onClose, onConfirm }: any) => {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [reason, setReason] = useState('');
+
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full">
-                <h3 className="font-bold mb-4">Re-hire {employee.name}</h3>
-                <input type="date" className="w-full p-2 border mb-2 rounded" value={date} onChange={e => setDate(e.target.value)} />
-                <textarea className="w-full p-2 border mb-4 rounded" placeholder="Reason / Notes" value={reason} onChange={e => setReason(e.target.value)} />
-                <div className="flex justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
-                    <button onClick={() => onConfirm(employee.id, date, reason)} className="px-4 py-2 bg-green-600 text-white rounded">Re-hire</button>
+            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6 animate-fade-in">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <RefreshCcw className="w-5 h-5 text-green-600"/> Re-hire Employee
+                    </h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600"/></button>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Name</span>
+                            <span className="font-medium text-gray-900">{employee.name}</span>
+                        </div>
+                        <div>
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Code</span>
+                            <span className="font-mono text-gray-900">{employee.code}</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Designation</span>
+                            <span className="text-gray-700">{employee.designation}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Re-joining Date</label>
+                        <input
+                            type="date"
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            value={date}
+                            onChange={e => setDate(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Re-hiring <span className="text-red-500">*</span></label>
+                        <textarea
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[100px] text-sm"
+                            placeholder="Please explain why the employee is re-joining (e.g., New Contract, Returned from Leave)..."
+                            value={reason}
+                            onChange={e => setReason(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-8">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() => onConfirm(employee.id, date, reason)}
+                        disabled={!reason.trim()}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        <UserCheck className="w-4 h-4"/> Confirm Re-hire
+                    </button>
                 </div>
             </div>
         </div>
@@ -1429,7 +1706,7 @@ const ReportsView = ({ employees, attendance }: { employees: Employee[], attenda
     }, [startDate, endDate, employees, attendance]);
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6 p-6">
+        <div className="w-full space-y-6 p-6">
             <div className="flex justify-between items-end print:hidden">
                 <div className="flex gap-4">
                     <div>
@@ -1551,8 +1828,11 @@ function App() {
   const [showManageCompanies, setShowManageCompanies] = useState(false);
   const [showPayslip, setShowPayslip] = useState<Employee | null>(null);
   const [showRehire, setShowRehire] = useState<Employee | null>(null);
+  const [showExEmployeeDetails, setShowExEmployeeDetails] = useState<Employee | null>(null);
   const [showHolidays, setShowHolidays] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
+  
+  const navRef = useRef<HTMLDivElement>(null);
 
   // Load Data
   useEffect(() => {
@@ -1635,6 +1915,7 @@ function App() {
   const navTabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, visible: currentUser.permissions.canViewDashboard },
     { id: 'directory', label: 'Staff Directory', icon: Users, visible: currentUser.permissions.canViewDirectory },
+    { id: 'offboarded', label: 'Ex-Employees', icon: History, visible: currentUser.permissions.canViewDirectory },
     { id: 'timesheet', label: 'Monthly Timesheet', icon: Calendar, visible: currentUser.permissions.canViewTimesheet },
     { id: 'leave', label: 'Leave Management', icon: FileText, visible: currentUser.permissions.canManageLeaves }, // Or view leaves
     { id: 'payroll', label: 'Payroll Register', icon: DollarSign, visible: currentUser.permissions.canViewPayroll },
@@ -1651,7 +1932,7 @@ function App() {
     <div className="min-h-screen flex flex-col print:bg-white">
       {/* Header */}
       <header className={`bg-white shadow-sm z-10 print:hidden`}>
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div className="w-full px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-600 p-2 rounded-lg">
               <Building2 className="w-6 h-6 text-white" />
@@ -1701,29 +1982,29 @@ function App() {
 
       {/* Navigation */}
       <nav className="bg-white border-b print:hidden">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-6 overflow-x-auto">
-            {navTabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 py-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.id 
-                    ? 'border-indigo-600 text-indigo-600 font-medium' 
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        <div className="w-full px-6 flex items-center overflow-x-auto">
+            <div className="flex gap-6">
+                {navTabs.map(tab => (
+                <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 py-4 px-2 border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === tab.id 
+                        ? 'border-indigo-600 text-indigo-600 font-medium' 
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                </button>
+                ))}
+            </div>
         </div>
       </nav>
 
-      <main className={`flex-1 max-w-full mx-auto px-4 py-6 w-full overflow-hidden ${showPayslip ? 'print:hidden' : ''}`}>
+      <main className={`flex-1 max-w-full mx-auto px-6 py-6 w-full overflow-hidden ${showPayslip ? 'print:hidden' : ''}`}>
         {activeTab === 'dashboard' && (
-             <div className="max-w-6xl mx-auto space-y-6">
+             <div className="w-full space-y-6">
                  <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
                     {currentUser.permissions.canManageUsers && (
@@ -1733,8 +2014,6 @@ function App() {
                     )}
                  </div>
 
-                 {/* AI Smart Log Removed */}
-                 
                  {/* Main Stats - Clickable for Drill Down */}
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <button onClick={() => handleDashboardFilter('status', 'Active')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left">
@@ -1879,6 +2158,69 @@ function App() {
             </div>
         )}
 
+        {activeTab === 'offboarded' && (
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-800">Offboarded Employee History</h2>
+                <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-700 uppercase font-bold border-b">
+                            <tr>
+                                <th className="p-4">Code</th>
+                                <th className="p-4">Name</th>
+                                <th className="p-4">Company</th>
+                                <th className="p-4">Designation</th>
+                                <th className="p-4">Exit Date</th>
+                                <th className="p-4">Type</th>
+                                <th className="p-4">Exit Reason</th>
+                                <th className="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {employees.filter(e => !e.active).map(emp => (
+                                <tr key={emp.id} className="hover:bg-gray-50">
+                                    <td className="p-4 font-mono text-gray-500">{emp.code}</td>
+                                    <td className="p-4 font-medium">{emp.name}</td>
+                                    <td className="p-4 text-gray-500">{emp.company}</td>
+                                    <td className="p-4 text-gray-500">{emp.designation}</td>
+                                    <td className="p-4 font-mono">{emp.offboardingDetails?.exitDate || '-'}</td>
+                                    <td className="p-4">
+                                        <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                                            {emp.offboardingDetails?.type || 'Inactive'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-gray-500 max-w-xs truncate" title={emp.offboardingDetails?.reason}>
+                                        {emp.offboardingDetails?.reason || '-'}
+                                    </td>
+                                    <td className="p-4 text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <button 
+                                                onClick={() => setShowExEmployeeDetails(emp)} 
+                                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" 
+                                                title="View Details"
+                                            >
+                                                <Eye className="w-4 h-4"/>
+                                            </button>
+                                            {currentUser.permissions.canManageEmployees && (
+                                                <button 
+                                                    onClick={() => setShowRehire(emp)} 
+                                                    className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700 flex items-center gap-1"
+                                                >
+                                                    <RefreshCcw className="w-3 h-3"/> Re-join
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {employees.filter(e => !e.active).length === 0 && (
+                                <tr><td colSpan={8} className="p-8 text-center text-gray-400">No offboarded employees found.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
+
         {activeTab === 'timesheet' && (
             <div className="space-y-4 h-full flex flex-col">
                 {/* Timesheet Header */}
@@ -2003,7 +2345,7 @@ function App() {
         )}
 
         {activeTab === 'leave' && (
-            <div className="max-w-5xl mx-auto space-y-6">
+            <div className="w-full space-y-6">
                 <div className="flex justify-between items-center">
                     <h2 className="text-xl font-bold">Leave Management</h2>
                     {currentUser.permissions.canManageLeaves && (
@@ -2253,6 +2595,13 @@ function App() {
                 setShowRehire(null);
                 handleRefresh();
             }}
+          />
+      )}
+      
+      {showExEmployeeDetails && (
+          <ExEmployeeDetailsModal 
+            employee={showExEmployeeDetails}
+            onClose={() => setShowExEmployeeDetails(null)}
           />
       )}
 

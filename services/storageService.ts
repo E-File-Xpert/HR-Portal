@@ -551,6 +551,23 @@ export const addSystemUser = (user: SystemUser): SystemUser[] => {
     return users;
 }
 
+export const updateSystemUser = (oldUsername: string, updatedUser: SystemUser): SystemUser[] => {
+    const users = getSystemUsers();
+    const index = users.findIndex(u => u.username === oldUsername);
+    if (index === -1) throw new Error("User not found");
+
+    // If username is changing, ensure it doesn't conflict
+    if (oldUsername !== updatedUser.username && users.find(u => u.username === updatedUser.username)) {
+        throw new Error("New username already exists");
+    }
+
+    // Prevent demoting Creator or Admin accidentally (though permissions check handles this in UI)
+    // Just update
+    users[index] = updatedUser;
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    return users;
+}
+
 export const deleteSystemUser = (username: string): SystemUser[] => {
     const users = getSystemUsers();
     // Prevent deleting Admin or Creator
