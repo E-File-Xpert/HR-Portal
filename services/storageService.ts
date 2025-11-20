@@ -112,7 +112,9 @@ export const logAttendance = (
   status: AttendanceStatus,
   dateOverride?: string,
   overtimeHours?: number,
-  otAttachment?: string
+  otAttachment?: string,
+  updatedBy?: string,
+  note?: string
 ): AttendanceRecord => {
   const employees = getEmployees();
   const employee = employees.find(e => e.id === employeeId);
@@ -146,13 +148,20 @@ export const logAttendance = (
       hoursWorked: hours,
       overtimeHours: overtimeHours || 0,
       checkInTime: status === AttendanceStatus.PRESENT ? new Date().toISOString() : undefined,
-      otAttachment: otAttachment
+      otAttachment: otAttachment,
+      updatedBy: updatedBy || 'System',
+      note: note
     };
     allRecords.push(record);
   } else {
     record = allRecords[recordIndex];
     record.status = status;
     record.hoursWorked = hours;
+    record.updatedBy = updatedBy || 'System';
+    
+    if (note !== undefined) {
+        record.note = note;
+    }
     
     // Update overtime if provided, otherwise keep existing or default to 0
     if (overtimeHours !== undefined) {
@@ -176,6 +185,44 @@ export const logAttendance = (
   return record;
 };
 
+export const deleteAttendanceRecord = (employeeId: string, date: string) => {
+    initStorage();
+    let allRecords: AttendanceRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
+    const initialLength = allRecords.length;
+    allRecords = allRecords.filter(r => !(r.employeeId === employeeId && r.date === date));
+    
+    if (allRecords.length !== initialLength) {
+        localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(allRecords));
+        return true;
+    }
+    return false;
+};
+
+export const copyDayAttendance = (sourceDate: string, targetDate: string, user: string) => {
+    initStorage();
+    const allRecords: AttendanceRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
+    
+    // Find all records for the source date
+    const sourceRecords = allRecords.filter(r => r.date === sourceDate);
+    if (sourceRecords.length === 0) return 0;
+
+    let count = 0;
+    sourceRecords.forEach(src => {
+        logAttendance(
+            src.employeeId, 
+            src.status, 
+            targetDate, 
+            src.overtimeHours, 
+            src.otAttachment, 
+            user, 
+            `Copied from ${sourceDate}`
+        );
+        count++;
+    });
+
+    return count;
+};
+
 // --- IMPORT / EXPORT ---
 
 export const exportToCSV = () => {
@@ -185,7 +232,7 @@ export const exportToCSV = () => {
 
     if (records.length === 0) return;
 
-    const headers = ['Date', 'Employee Code', 'Employee Name', 'Designation', 'Company', 'Status', 'Hours', 'Overtime', 'Attachment'];
+    const headers = ['Date', 'Employee Code', 'Employee Name', 'Designation', 'Company', 'Status', 'Hours', 'Overtime', 'Attachment', 'Updated By', 'Notes'];
     const csvContent = [
         headers.join(','),
         ...records.map(r => {
@@ -199,7 +246,9 @@ export const exportToCSV = () => {
                 r.status,
                 r.hoursWorked,
                 r.overtimeHours || 0,
-                r.otAttachment ? 'Yes' : 'No'
+                r.otAttachment ? 'Yes' : 'No',
+                r.updatedBy || '',
+                `"${r.note || ''}"`
             ].join(',');
         })
     ].join('\n');
@@ -251,10 +300,17 @@ export const importAttendanceFromCSV = (csvText: string): { success: number, err
         if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(date)) {
              const [d, m, y] = date.split('/');
              formattedDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-        } else if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        } 
+        // Check for YYYY/MM/DD (New Requirement)
+        else if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(date)) {
+             const [y, m, d] = date.split('/');
+             formattedDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+        // Check for YYYY-MM-DD (Standard)
+        else if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
              formattedDate = date;
         } else {
-             errors.push(`Row ${i+1}: Invalid date format '${date}'. Use DD/MM/YYYY or YYYY-MM-DD.`);
+             errors.push(`Row ${i+1}: Invalid date format '${date}'. Use YYYY/MM/DD, DD/MM/YYYY or YYYY-MM-DD.`);
              continue;
         }
 
@@ -396,7 +452,8 @@ export const seedMonthlyData = (year: number, month: number) => {
                 date: dateStr,
                 status,
                 hoursWorked: status === AttendanceStatus.PRESENT ? 8 : 0,
-                overtimeHours: ot
+                overtimeHours: ot,
+                updatedBy: 'System'
             });
         }
     });
@@ -405,8 +462,8 @@ export const seedMonthlyData = (year: number, month: number) => {
     window.location.reload();
 };
 
-// --- LEAVE MANAGEMENT ---
-
+// ... (Rest of the functions remain the same: getLeaveRequests, saveLeaveRequest, etc.)
+// Only ensuring imports/exports are valid.
 export const getLeaveRequests = (): LeaveRequest[] => {
   initStorage();
   const data = localStorage.getItem(STORAGE_KEYS.LEAVE_REQUESTS);
@@ -465,8 +522,6 @@ export const updateLeaveRequestStatus = (id: string, status: LeaveStatus) => {
   }
 };
 
-// --- PUBLIC HOLIDAYS ---
-
 export const getPublicHolidays = (): PublicHoliday[] => {
     initStorage();
     const data = localStorage.getItem(STORAGE_KEYS.PUBLIC_HOLIDAYS);
@@ -493,8 +548,6 @@ export const deletePublicHoliday = (id: string) => {
     localStorage.setItem(STORAGE_KEYS.PUBLIC_HOLIDAYS, JSON.stringify(updated));
     return updated;
 }
-
-// --- COMPANY MANAGEMENT ---
 
 export const getCompanies = (): string[] => {
     initStorage();
@@ -541,8 +594,6 @@ export const updateCompany = (oldName: string, newName: string): string[] => {
     return companies;
 }
 
-// --- USER / AUTH MANAGEMENT ---
-
 export const getSystemUsers = (): SystemUser[] => {
     initStorage();
     const data = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -564,13 +615,10 @@ export const updateSystemUser = (oldUsername: string, updatedUser: SystemUser): 
     const index = users.findIndex(u => u.username === oldUsername);
     if (index === -1) throw new Error("User not found");
 
-    // If username is changing, ensure it doesn't conflict
     if (oldUsername !== updatedUser.username && users.find(u => u.username === updatedUser.username)) {
         throw new Error("New username already exists");
     }
 
-    // Prevent demoting Creator or Admin accidentally (though permissions check handles this in UI)
-    // Just update
     users[index] = updatedUser;
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     return users;
@@ -578,7 +626,6 @@ export const updateSystemUser = (oldUsername: string, updatedUser: SystemUser): 
 
 export const deleteSystemUser = (username: string): SystemUser[] => {
     const users = getSystemUsers();
-    // Prevent deleting Admin or Creator
     if (username === DEFAULT_ADMIN.username || username === CREATOR_USER.username) {
         throw new Error("Cannot delete this protected system account.");
     }
@@ -586,8 +633,6 @@ export const deleteSystemUser = (username: string): SystemUser[] => {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updated));
     return updated;
 }
-
-// --- ABOUT PAGE ---
 
 export const getAboutData = (): AboutData => {
     initStorage();

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -49,7 +50,8 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Copy
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -77,6 +79,7 @@ import {
   rehireEmployee,
   getAttendanceRange,
   logAttendance, 
+  copyDayAttendance,
   seedMonthlyData,
   exportToCSV,
   importAttendanceFromCSV,
@@ -96,7 +99,8 @@ import {
   updateSystemUser,
   deleteSystemUser,
   getAboutData,
-  saveAboutData
+  saveAboutData,
+  deleteAttendanceRecord
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS } from './constants';
 
@@ -745,23 +749,25 @@ const DocumentPreviewModal = ({ isOpen, onClose, attachment }: { isOpen: boolean
   );
 };
 
-const AttendanceActionModal = ({ isOpen, onClose, onSave, employeeName, date, currentStatus, currentOt, currentAttachment, onPreview, isOtEligible }: any) => {
+const AttendanceActionModal = ({ isOpen, onClose, onSave, onDelete, employeeName, date, currentStatus, currentOt, currentAttachment, currentNote, onPreview, isOtEligible }: any) => {
     const [status, setStatus] = useState(currentStatus);
     const [ot, setOt] = useState(currentOt);
     const [file, setFile] = useState<File | null>(null);
+    const [note, setNote] = useState(currentNote || '');
 
     useEffect(() => {
         setStatus(currentStatus);
         setOt(currentOt);
+        setNote(currentNote || '');
         setFile(null);
-    }, [isOpen, currentStatus, currentOt]);
+    }, [isOpen, currentStatus, currentOt, currentNote]);
 
     const handleSave = async () => {
         let attachmentStr = currentAttachment;
         if (file) {
             attachmentStr = await readFileAsBase64(file);
         }
-        onSave(status, ot, attachmentStr);
+        onSave(status, ot, attachmentStr, note);
     };
 
     if (!isOpen) return null;
@@ -798,10 +804,21 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, employeeName, date, cu
                             )}
                         </div>
                     )}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                        <textarea value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Optional note (e.g. Late arrival)" />
+                    </div>
                 </div>
-                <div className="flex justify-end gap-2 mt-6">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+                <div className="flex justify-between items-center mt-6">
+                    {currentStatus && onDelete ? (
+                        <button onClick={onDelete} className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded text-sm font-medium transition-colors">
+                            <Trash2 className="w-4 h-4" /> Clear Status
+                        </button>
+                    ) : <div></div>}
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                        <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -814,8 +831,8 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
     
     const downloadSample = () => {
         const headers = "EmployeeCode,Date,Status,Overtime";
-        const row1 = "10001,01/12/2025,P,2";
-        const row2 = "10002,01/12/2025,A,0";
+        const row1 = "10001,2025/12/01,P,2";
+        const row2 = "10002,2025/12/01,A,0";
         const content = `${headers}\n${row1}\n${row2}`;
         const blob = new Blob([content], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
@@ -847,7 +864,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
                     <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".csv, .xlsx, .xls" className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
                 </div>
                 <p className="text-xs font-bold mb-1">Or paste CSV data here:</p>
-                <textarea value={csv} onChange={e => setCsv(e.target.value)} placeholder="Format: EmployeeCode, Date(DD/MM/YYYY), Status(P/A/etc), OT(number)" className="flex-1 w-full p-4 border rounded font-mono text-xs" />
+                <textarea value={csv} onChange={e => setCsv(e.target.value)} placeholder="Format: EmployeeCode, Date(YYYY/MM/DD), Status(P/A/etc), OT(number)" className="flex-1 w-full p-4 border rounded font-mono text-xs" />
                 <div className="flex justify-end gap-2 mt-4">
                     <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
                     <button onClick={() => onImport(csv)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Import</button>
@@ -907,6 +924,7 @@ const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
 
 // ... (EditEmployeeModal, OnboardingWizard, OffboardingWizard, RehireModal, LeaveRequestModal, HolidayManagementModal - same)
 const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
+    // ... (same)
     const [formData, setFormData] = useState<Employee>({...employee});
     const handleChange = (field: string, value: any) => setFormData(prev => ({...prev, [field]: value}));
     const handleSalaryChange = (field: string, value: number) => setFormData(prev => ({...prev, salary: {...prev.salary, [field]: value}}));
@@ -1270,6 +1288,66 @@ const HolidayManagementModal = ({ isOpen, onClose }: any) => {
     )
 };
 
+const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
+    const [sourceDate, setSourceDate] = useState(formatDateLocal(new Date()));
+    const [targetDate, setTargetDate] = useState(formatDateLocal(new Date(Date.now() + 86400000)));
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                        <Copy className="w-5 h-5 text-orange-500" /> Copy Attendance
+                    </h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
+                </div>
+
+                <div className="space-y-4 mb-6">
+                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100 text-sm text-orange-800">
+                        <p className="font-bold mb-1">Warning:</p>
+                        This will copy all attendance status, hours, and notes from the source date to the target date for all employees. Existing records on the target date will be overwritten.
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Copy From</label>
+                            <input
+                                type="date"
+                                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                value={sourceDate}
+                                onChange={(e) => setSourceDate(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Copy To</label>
+                            <input
+                                type="date"
+                                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                value={targetDate}
+                                onChange={(e) => setTargetDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={() => onCopy(sourceDate, targetDate)} 
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700"
+                    >
+                        Confirm Copy
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const PayslipModal = ({ employee, month, year, onClose }: any) => {
     const start = formatDateLocal(new Date(year, month, 1));
     const end = formatDateLocal(new Date(year, month + 1, 0));
@@ -1404,7 +1482,8 @@ function App() {
   const [showExEmployeeDetails, setShowExEmployeeDetails] = useState<Employee | null>(null);
   const [showHolidays, setShowHolidays] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
-  
+  const [showCopyModal, setShowCopyModal] = useState(false);
+
   useEffect(() => {
     if (currentUser) {
         setEmployees(getEmployees());
@@ -1417,7 +1496,6 @@ function App() {
   const loadAttendanceForMonth = (date: Date) => {
     const y = date.getFullYear();
     const m = date.getMonth();
-    // Use local formatting to ensure we get the full month range without timezone shifts
     const start = formatDateLocal(new Date(y, m, 1));
     const end = formatDateLocal(new Date(y, m + 1, 0));
     setAttendance(getAttendanceRange(start, end));
@@ -1433,6 +1511,24 @@ function App() {
     setLeaveRequests(getLeaveRequests());
     setCompanies(getCompanies());
     loadAttendanceForMonth(currentDate);
+  };
+
+  const handleCopyAttendance = (source: string, target: string) => {
+      const count = copyDayAttendance(source, target, currentUser?.username || 'System');
+      alert(`Copied ${count} records from ${source} to ${target}`);
+      setShowCopyModal(false);
+      handleRefresh();
+  };
+
+  const handleDeleteAttendance = () => {
+      if (showAttendanceModal.employee && showAttendanceModal.date && showAttendanceModal.record) {
+          if (confirm("Are you sure you want to delete this attendance record? This will clear the status.")) {
+              const dateStr = formatDateLocal(showAttendanceModal.date);
+              deleteAttendanceRecord(showAttendanceModal.employee.id, dateStr);
+              setShowAttendanceModal({ isOpen: false });
+              handleRefresh();
+          }
+      }
   };
 
   const handleDashboardFilter = (filterType: 'team' | 'company' | 'status', value: string) => {
@@ -1451,7 +1547,6 @@ function App() {
     if (selectedTeam !== 'All' && e.team !== selectedTeam) return false;
     const viewMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const joining = new Date(e.joiningDate);
-    // Check joining month logic. Simple check: joined before end of this view month
     if (joining > new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)) return false;
     if (e.status === 'Inactive' && e.offboardingDetails?.exitDate) {
         const exitDate = new Date(e.offboardingDetails.exitDate);
@@ -1486,7 +1581,7 @@ function App() {
         <div className="w-full px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-600 p-2 rounded-lg"><Building2 className="w-6 h-6 text-white" /></div>
-            <div><h1 className="text-xl font-bold text-gray-900">ShiftSync</h1><p className="text-xs text-gray-500">Smart Workforce Management</p></div>
+            <div><h1 className="text-xl font-bold text-gray-900">ShiftSync</h1></div>
           </div>
           <div className="flex items-center gap-4">
              <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)} className="text-sm border rounded-lg px-3 py-2 bg-gray-50 max-w-[200px]"><option value="All">All Companies</option>{companies.map(c => <option key={c} value={c}>{c}</option>)}</select>
@@ -1543,7 +1638,7 @@ function App() {
                 <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-700 uppercase font-bold border-b"><tr><th className="p-4 whitespace-nowrap">Code</th><th className="p-4 whitespace-nowrap">Name</th><th className="p-4 whitespace-nowrap">Company</th><th className="p-4 whitespace-nowrap">Team</th><th className="p-4 whitespace-nowrap">Designation</th><th className="p-4 whitespace-nowrap">Status</th><th className="p-4 whitespace-nowrap">Leave Bal</th><th className="p-4 whitespace-nowrap">Emirates ID</th><th className="p-4 whitespace-nowrap">Passport Exp</th><th className="p-4 whitespace-nowrap">Labour Card Exp</th><th className="p-4 whitespace-nowrap text-right">Actions</th></tr></thead>
+                            <thead className="bg-gray-50 text-gray-700 uppercase font-bold border-b"><tr><th className="p-4 whitespace-nowrap">Code</th><th className="p-4 whitespace-nowrap">Name</th><th className="p-4 whitespace-nowrap">Company</th><th className="p-4 whitespace-nowrap">Team</th><th className="p-4 whitespace-nowrap">Designation</th><th className="p-4 whitespace-nowrap">Status</th><th className="p-4 whitespace-nowrap">Leave Bal</th><th className="p-4 whitespace-nowrap">Emirates ID</th><th className="p-4 whitespace-nowrap">Passport Exp</th><th className="p-4 whitespace-nowrap">Labour Card Exp</th><th className="p-4 whitespace-nowrap text-right sticky right-0 bg-gray-50 z-10 shadow-l border-l">Actions</th></tr></thead>
                             <tbody className="divide-y divide-gray-100">
                                 {filteredEmployees.map(emp => (
                                     <tr key={emp.id} className="hover:bg-gray-50 transition-colors group">
@@ -1557,7 +1652,7 @@ function App() {
                                         <td className="p-4 font-mono text-xs">{emp.documents?.emiratesId || '-'} <br/> <span className={getDateColor(emp.documents?.emiratesIdExpiry)}>{emp.documents?.emiratesIdExpiry}</span></td>
                                         <td className="p-4 font-mono text-xs"><span className={getDateColor(emp.documents?.passportExpiry, 'passport')}>{emp.documents?.passportExpiry || '-'}</span></td>
                                         <td className="p-4 font-mono text-xs"><span className={getDateColor(emp.documents?.labourCardExpiry)}>{emp.documents?.labourCardExpiry || '-'}</span></td>
-                                        <td className="p-4 text-right">
+                                        <td className="p-4 text-right sticky right-0 bg-white group-hover:bg-gray-50 z-10 shadow-l border-l">
                                             {currentUser.permissions.canManageEmployees && (
                                                 <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button onClick={() => setEditingEmployee(emp)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Edit"><Edit className="w-4 h-4"/></button>
@@ -1611,6 +1706,7 @@ function App() {
                             <button onClick={() => handleMonthChange(1)} className="p-2 hover:bg-white rounded-md shadow-sm transition-all"><ChevronRight className="w-4 h-4"/></button>
                         </div>
                         {currentUser.permissions.canManageSettings && (<button onClick={() => setShowHolidays(true)} className="text-xs font-medium text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200 flex items-center gap-1"><Calendar className="w-3 h-3"/> Manage Holidays</button>)}
+                        {currentUser.permissions.canManageAttendance && (<button onClick={() => setShowCopyModal(true)} className="text-xs font-medium text-orange-600 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 flex items-center gap-1"><Copy className="w-3 h-3"/> Copy Attendance</button>)}
                     </div>
                     <div className="flex items-center gap-2">
                          <div className="flex flex-wrap gap-1 max-w-xl justify-end">{Object.values(ATTENDANCE_LEGEND).map((l) => (<span key={l.code} className={`text-[10px] px-2 py-1 rounded ${l.color} border border-black/5`}>{l.code} - {l.label}</span>))}</div>
@@ -1656,6 +1752,7 @@ function App() {
                                                         key={day.getDate()} 
                                                         onClick={() => { if (currentUser.permissions.canManageAttendance) { setShowAttendanceModal({ isOpen: true, employee: emp, date: day, record }); } }}
                                                         className={`border-r text-center transition-all relative ${legend?.color || (isSunday ? 'bg-gray-50' : '')} ${currentUser.permissions.canManageAttendance ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                                                        title={record ? `Updated by: ${record.updatedBy || 'System'}\nNote: ${record.note || '-'}` : ''}
                                                     >
                                                         <div className="h-8 flex items-center justify-center text-[10px] font-bold relative group">
                                                             {legend?.code}
@@ -1744,11 +1841,10 @@ function App() {
       </main>
       <ManageCompaniesModal isOpen={showManageCompanies} onClose={() => setShowManageCompanies(false)} companies={companies} onDataChange={setCompanies} />
       <UserManagementModal isOpen={showUserManagement} onClose={() => setShowUserManagement(false)} />
-      <AttendanceActionModal isOpen={showAttendanceModal.isOpen} onClose={() => setShowAttendanceModal({ isOpen: false })} onSave={(status: AttendanceStatus, ot: number, attachment?: string) => { if (showAttendanceModal.employee && showAttendanceModal.date) { 
-          // Use local formatting for save to avoid timezone shifts
-          logAttendance(showAttendanceModal.employee.id, status, formatDateLocal(showAttendanceModal.date), ot, attachment); 
+      <AttendanceActionModal isOpen={showAttendanceModal.isOpen} onClose={() => setShowAttendanceModal({ isOpen: false })} onSave={(status: AttendanceStatus, ot: number, attachment?: string, note?: string) => { if (showAttendanceModal.employee && showAttendanceModal.date) { 
+          logAttendance(showAttendanceModal.employee.id, status, formatDateLocal(showAttendanceModal.date), ot, attachment, currentUser.username, note); 
           setShowAttendanceModal({ isOpen: false }); handleRefresh(); } 
-      }} employeeName={showAttendanceModal.employee?.name || ''} date={showAttendanceModal.date || new Date()} currentStatus={showAttendanceModal.record?.status || (showAttendanceModal.date?.getDay() === 0 ? AttendanceStatus.WEEK_OFF : AttendanceStatus.PRESENT)} currentOt={showAttendanceModal.record?.overtimeHours || 0} currentAttachment={showAttendanceModal.record?.otAttachment} onPreview={(data: string) => setShowPreview(data)} isOtEligible={showAttendanceModal.employee?.team !== 'Office Staff'} />
+      }} onDelete={handleDeleteAttendance} employeeName={showAttendanceModal.employee?.name || ''} date={showAttendanceModal.date || new Date()} currentStatus={showAttendanceModal.record?.status || (showAttendanceModal.date?.getDay() === 0 ? AttendanceStatus.WEEK_OFF : AttendanceStatus.PRESENT)} currentOt={showAttendanceModal.record?.overtimeHours || 0} currentAttachment={showAttendanceModal.record?.otAttachment} currentNote={showAttendanceModal.record?.note} onPreview={(data: string) => setShowPreview(data)} isOtEligible={showAttendanceModal.employee?.team !== 'Office Staff'} />
       {showPreview && (<DocumentPreviewModal isOpen={true} onClose={() => setShowPreview(null)} attachment={showPreview} />)}
       <BulkImportModal isOpen={showImport} onClose={() => setShowImport(false)} onImport={(csv: string) => { const res = importAttendanceFromCSV(csv); alert(`Imported ${res.success} records. Errors: ${res.errors.length}`); setShowImport(false); handleRefresh(); }} />
       <EmployeeImportModal isOpen={showEmpImport} onClose={() => setShowEmpImport(false)} onImport={(csv: string) => { const res = importEmployeesFromCSV(csv); alert(`Imported/Updated ${res.success} employees. Errors: ${res.errors.length}`); setShowEmpImport(false); handleRefresh(); }} />
@@ -1760,6 +1856,7 @@ function App() {
       {showLeaveModal && (<LeaveRequestModal employees={employees.filter(e => e.active)} onClose={() => setShowLeaveModal(false)} onSave={() => { setShowLeaveModal(false); handleRefresh(); }} />)}
       <HolidayManagementModal isOpen={showHolidays} onClose={() => { setShowHolidays(false); handleRefresh(); }} />
       {showPayslip && (<PayslipModal employee={showPayslip} month={currentDate.getMonth()} year={currentDate.getFullYear()} onClose={() => setShowPayslip(null)} />)}
+      <CopyAttendanceModal isOpen={showCopyModal} onClose={() => setShowCopyModal(false)} onCopy={handleCopyAttendance} />
     </div>
   );
 }

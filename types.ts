@@ -106,6 +106,8 @@ export interface AttendanceRecord {
   checkInTime?: string;
   checkOutTime?: string;
   otAttachment?: string; // Base64 string or file path
+  updatedBy?: string; // Username of who made the change
+  note?: string; // Optional note for the status change
 }
 
 export interface DashboardStats {
