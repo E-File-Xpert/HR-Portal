@@ -45,6 +45,7 @@ import {
   Square,
   FileIcon
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 import { 
   Employee, 
@@ -180,6 +181,43 @@ const readFileAsBase64 = (file: File): Promise<string> => {
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+};
+
+// Helper to read file as ArrayBuffer for Excel
+const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as ArrayBuffer);
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+    });
+};
+
+// Common File Import Handler Logic
+const handleFileImport = async (file: File, callback: (csvText: string) => void) => {
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.csv')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            callback(text);
+        };
+        reader.readAsText(file);
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        try {
+            const data = await readFileAsArrayBuffer(file);
+            const workbook = XLSX.read(data);
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const csvText = XLSX.utils.sheet_to_csv(worksheet);
+            callback(csvText);
+        } catch (err) {
+            console.error("Error parsing Excel file", err);
+            alert("Failed to parse Excel file. Please check the format.");
+        }
+    } else {
+        alert("Unsupported file type. Please upload .csv, .xlsx, or .xls");
+    }
 };
 
 // --- Sub Components ---
@@ -568,6 +606,7 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, employeeName, date, cu
 
 const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
     const [csv, setCsv] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
     const downloadSample = () => {
         const headers = "EmployeeCode,Date,Status,Overtime";
@@ -582,16 +621,37 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
         a.click();
     };
 
+    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            handleFileImport(e.target.files[0], (text) => setCsv(text));
+        }
+    };
+
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Bulk Import Attendance (CSV)</h3>
+                    <h3 className="font-bold text-lg">Bulk Import Attendance</h3>
                     <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
-                        <Download className="w-3 h-3"/> Download Sample Format
+                        <Download className="w-3 h-3"/> Download Sample CSV
                     </button>
                 </div>
+
+                <div className="mb-4 p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center text-center">
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600 font-medium mb-1">Upload CSV or Excel File</p>
+                    <p className="text-xs text-gray-500 mb-3">Supported formats: .csv, .xlsx, .xls</p>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        onChange={onFileChange}
+                        accept=".csv, .xlsx, .xls"
+                        className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                    />
+                </div>
+
+                <p className="text-xs font-bold mb-1">Or paste CSV data here:</p>
                 <textarea 
                     value={csv} 
                     onChange={e => setCsv(e.target.value)} 
@@ -609,6 +669,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
 
 const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
     const [csv, setCsv] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const downloadSample = () => {
         const headers = "Code,Name,Designation,Department,Company,JoiningDate,Type,Status,Team,Location,Basic,Housing,Transport,Other,EmiratesID,EIDExpiry,Passport,PassExpiry,LabourCard,LCExpiry,VacationDate";
@@ -622,21 +683,42 @@ const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
         a.click();
     };
 
+    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            handleFileImport(e.target.files[0], (text) => setCsv(text));
+        }
+    };
+
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Bulk Import Employees (CSV)</h3>
+                    <h3 className="font-bold text-lg">Bulk Import Employees</h3>
                     <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
-                        <Download className="w-3 h-3"/> Download Sample Format
+                        <Download className="w-3 h-3"/> Download Sample CSV
                     </button>
                 </div>
+                
+                <div className="mb-4 p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center text-center">
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600 font-medium mb-1">Upload CSV or Excel File</p>
+                    <p className="text-xs text-gray-500 mb-3">Supported formats: .csv, .xlsx, .xls</p>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        onChange={onFileChange}
+                        accept=".csv, .xlsx, .xls"
+                        className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                    />
+                </div>
+
                 <p className="text-xs text-gray-500 mb-2">Header: Code, Name, Designation, Department, Company, JoiningDate, Type, Status, Team, Location, Basic, Housing, Transport, Other, EID, EIDExp, Passport, PassExp, Labour, LabourExp, VacationDate</p>
                 <textarea 
                     value={csv} 
                     onChange={e => setCsv(e.target.value)} 
                     className="flex-1 w-full p-4 border rounded font-mono text-xs"
+                    placeholder="Paste CSV data here..."
                 />
                 <div className="flex justify-end gap-2 mt-4">
                     <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
@@ -1587,7 +1669,7 @@ function App() {
                     {currentUser.permissions.canManageEmployees && (
                         <div className="flex gap-3">
                             <button onClick={() => setShowEmpImport(true)} className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded text-sm font-medium">
-                                <Upload className="w-4 h-4"/> Import CSV
+                                <Upload className="w-4 h-4"/> Import CSV/Excel
                             </button>
                             <button onClick={() => setShowOnboarding(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2">
                                 <UserPlus className="w-4 h-4"/> Onboard Employee
@@ -1680,7 +1762,7 @@ function App() {
                          {currentUser.permissions.canManageAttendance && (
                              <>
                                  <div className="h-8 w-px bg-gray-300 mx-2"></div>
-                                 <button onClick={() => setShowImport(true)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Import CSV"><FileSpreadsheet className="w-5 h-5"/></button>
+                                 <button onClick={() => setShowImport(true)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Import CSV/Excel"><FileSpreadsheet className="w-5 h-5"/></button>
                                  <button onClick={exportToCSV} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Export CSV"><Download className="w-5 h-5"/></button>
                              </>
                          )}
