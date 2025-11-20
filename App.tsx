@@ -42,7 +42,8 @@ import {
   Shield,
   Lock,
   CheckSquare,
-  Square
+  Square,
+  FileIcon
 } from 'lucide-react';
 
 import { 
@@ -117,6 +118,7 @@ const calculateAdditionalEarnings = (records: AttendanceRecord[], team: string) 
     let overtimePay = 0;
     let holidayPay = 0;
     let weekOffPay = 0;
+    let totalOTHours = 0;
 
     const HOURLY_OT_RATE = 5;
     const WEEK_OFF_HOURLY_RATE = 5;
@@ -129,6 +131,7 @@ const calculateAdditionalEarnings = (records: AttendanceRecord[], team: string) 
         // Overtime Calculation
         if (isOtEligible && r.overtimeHours > 0) {
             overtimePay += r.overtimeHours * HOURLY_OT_RATE;
+            totalOTHours += r.overtimeHours;
         }
 
         // Public Holiday Work Calculation (If PRESENT on a Public Holiday)
@@ -143,7 +146,7 @@ const calculateAdditionalEarnings = (records: AttendanceRecord[], team: string) 
         }
     });
 
-    return { overtimePay, holidayPay, weekOffPay };
+    return { overtimePay, holidayPay, weekOffPay, totalOTHours };
 };
 
 const getDateColor = (dateStr: string | undefined, type: 'standard' | 'passport' = 'standard') => {
@@ -245,8 +248,6 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
                         Password: <span className="font-mono font-bold">123</span>
                     </p>
                 </div>
-                
-                <p className="text-xs text-center text-gray-400 mt-6">Protected System. Authorized Access Only.</p>
             </div>
         </div>
     )
@@ -279,20 +280,6 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
             const updated = addSystemUser({ ...formData, active: true, permissions });
             setUsers(updated);
             setFormData({ username: '', password: '', name: '', role: UserRole.HR });
-            // Reset permissions to default
-            setPermissions({
-                canViewDashboard: true,
-                canManageEmployees: false,
-                canViewDirectory: true,
-                canManageAttendance: false,
-                canViewTimesheet: true,
-                canManageLeaves: false,
-                canViewPayroll: false,
-                canManagePayroll: false,
-                canViewReports: false,
-                canManageUsers: false,
-                canManageSettings: false
-            });
         } catch (e: any) {
             alert(e.message);
         }
@@ -333,7 +320,6 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                     <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500"/></button>
                 </div>
 
-                {/* Add User Form */}
                 <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
                      <h4 className="font-bold text-sm mb-4">Create New User</h4>
                      <div className="grid grid-cols-2 gap-4 mb-4">
@@ -345,7 +331,6 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                          </select>
                      </div>
                      
-                     {/* Permissions Grid */}
                      <div className="mb-4">
                          <p className="text-xs font-bold text-gray-500 uppercase mb-2">Access Permissions</p>
                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -364,7 +349,6 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                      <button onClick={handleAdd} className="w-full bg-indigo-600 text-white py-2 rounded text-sm hover:bg-indigo-700">Create System User</button>
                 </div>
 
-                {/* User List */}
                 <div className="overflow-y-auto flex-1">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-100 font-bold sticky top-0">
@@ -442,7 +426,6 @@ const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: { is
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700"><XCircle className="w-6 h-6"/></button>
                 </div>
                 
-                {/* Add Form */}
                 <div className="flex gap-2 mb-6">
                     <input 
                         type="text" 
@@ -456,7 +439,6 @@ const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: { is
                     </button>
                 </div>
 
-                {/* List */}
                 <div className="flex-1 overflow-y-auto pr-2">
                     <h4 className="text-sm font-bold text-gray-700 mb-2">Existing Companies</h4>
                     <ul className="space-y-2">
@@ -506,7 +488,11 @@ const DocumentPreviewModal = ({ isOpen, onClose, attachment }: { isOpen: boolean
           <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-800"/></button>
         </div>
         <div className="flex-1 bg-gray-200 flex items-center justify-center overflow-auto p-4">
-          <img src={attachment} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded" />
+          {attachment.startsWith('data:image') ? (
+             <img src={attachment} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded" />
+          ) : (
+             <iframe src={attachment} className="w-full h-full bg-white shadow-lg rounded" title="Preview" />
+          )}
         </div>
       </div>
     </div>
@@ -559,10 +545,13 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, employeeName, date, cu
 
                     {isOtEligible && (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">OT Proof (Image)</label>
-                            <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500"/>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">OT Proof (Document/Image)</label>
+                            <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 mb-2"/>
                             {currentAttachment && (
-                                <button type="button" onClick={() => onPreview(currentAttachment)} className="text-xs text-indigo-600 mt-1 hover:underline">View Current Attachment</button>
+                                <div className="flex items-center justify-between bg-gray-50 p-2 rounded border">
+                                    <span className="text-xs text-gray-600 flex items-center gap-1"><Paperclip className="w-3 h-3"/> File Attached</span>
+                                    <button type="button" onClick={() => onPreview(currentAttachment)} className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"><Eye className="w-3 h-3"/> View</button>
+                                </div>
                             )}
                         </div>
                     )}
@@ -579,11 +568,30 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, employeeName, date, cu
 
 const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
     const [csv, setCsv] = useState('');
+    
+    const downloadSample = () => {
+        const headers = "EmployeeCode,Date,Status,Overtime";
+        const row1 = "10001,2025-12-01,P,2";
+        const row2 = "10002,2025-12-01,A,0";
+        const content = `${headers}\n${row1}\n${row2}`;
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'attendance_sample.csv';
+        a.click();
+    };
+
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
-                <h3 className="font-bold text-lg mb-4">Bulk Import Attendance (CSV)</h3>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg">Bulk Import Attendance (CSV)</h3>
+                    <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
+                        <Download className="w-3 h-3"/> Download Sample Format
+                    </button>
+                </div>
                 <textarea 
                     value={csv} 
                     onChange={e => setCsv(e.target.value)} 
@@ -601,11 +609,29 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
 
 const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
     const [csv, setCsv] = useState('');
+
+    const downloadSample = () => {
+        const headers = "Code,Name,Designation,Department,Company,JoiningDate,Type,Status,Team,Location,Basic,Housing,Transport,Other,EmiratesID,EIDExpiry,Passport,PassExpiry,LabourCard,LCExpiry,VacationDate";
+        const row1 = "EMP001,John Doe,Manager,IT,MyCompany,2025-01-01,Staff,Active,Office Staff,Dubai,5000,2000,1000,500,784-1234-1234567-1,2026-01-01,N123456,2030-01-01,12345678,2026-05-01,2025-12-15";
+        const content = `${headers}\n${row1}`;
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'employee_import_sample.csv';
+        a.click();
+    };
+
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
-                <h3 className="font-bold text-lg mb-4">Bulk Import Employees (CSV)</h3>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg">Bulk Import Employees (CSV)</h3>
+                    <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
+                        <Download className="w-3 h-3"/> Download Sample Format
+                    </button>
+                </div>
                 <p className="text-xs text-gray-500 mb-2">Header: Code, Name, Designation, Department, Company, JoiningDate, Type, Status, Team, Location, Basic, Housing, Transport, Other, EID, EIDExp, Passport, PassExp, Labour, LabourExp, VacationDate</p>
                 <textarea 
                     value={csv} 
@@ -630,6 +656,10 @@ const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
     
     const handleSalaryChange = (field: string, value: number) => {
         setFormData(prev => ({...prev, salary: {...prev.salary, [field]: value}}));
+    }
+
+    const handleDocChange = (field: string, value: string) => {
+        setFormData(prev => ({...prev, documents: {...prev.documents, [field]: value}}));
     }
 
     return (
@@ -662,8 +692,19 @@ const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
                     <input type="number" className="p-2 border rounded" placeholder="Transport" value={formData.salary.transport} onChange={e => handleSalaryChange('transport', parseFloat(e.target.value))} />
                     <input type="number" className="p-2 border rounded" placeholder="Other" value={formData.salary.other} onChange={e => handleSalaryChange('other', parseFloat(e.target.value))} />
                 </div>
+                
+                <h4 className="font-bold text-sm mb-2 mt-4">Documents & Dates</h4>
+                <div className="grid grid-cols-2 gap-4">
+                     <div><label className="text-xs">Emirates ID</label><input className="w-full p-2 border rounded" value={formData.documents?.emiratesId || ''} onChange={e => handleDocChange('emiratesId', e.target.value)} /></div>
+                     <div><label className="text-xs">EID Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.emiratesIdExpiry || ''} onChange={e => handleDocChange('emiratesIdExpiry', e.target.value)} /></div>
+                     <div><label className="text-xs">Passport No</label><input className="w-full p-2 border rounded" value={formData.documents?.passportNumber || ''} onChange={e => handleDocChange('passportNumber', e.target.value)} /></div>
+                     <div><label className="text-xs">Passport Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.passportExpiry || ''} onChange={e => handleDocChange('passportExpiry', e.target.value)} /></div>
+                     <div><label className="text-xs">Labour Card No</label><input className="w-full p-2 border rounded" value={formData.documents?.labourCardNumber || ''} onChange={e => handleDocChange('labourCardNumber', e.target.value)} /></div>
+                     <div><label className="text-xs">LC Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.labourCardExpiry || ''} onChange={e => handleDocChange('labourCardExpiry', e.target.value)} /></div>
+                     <div><label className="text-xs">Vacation Date</label><input type="date" className="w-full p-2 border rounded" value={formData.vacationScheduledDate || ''} onChange={e => handleChange('vacationScheduledDate', e.target.value)} /></div>
+                </div>
 
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 mt-4">
                     <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
                     <button onClick={() => onSave(formData)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save Changes</button>
                 </div>
@@ -680,7 +721,8 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
         salary: { basic: 0, housing: 0, transport: 0, other: 0 },
         leaveBalance: 0,
         active: true,
-        joiningDate: new Date().toISOString().split('T')[0]
+        joiningDate: new Date().toISOString().split('T')[0],
+        documents: {}
     });
 
     const handleSave = () => {
@@ -691,51 +733,91 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6">
-                <h3 className="font-bold text-lg mb-4">Onboard New Employee (Step {step}/3)</h3>
+            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl p-6 h-[85vh] flex flex-col">
+                <div className="mb-4">
+                    <h3 className="font-bold text-lg">Onboard New Employee</h3>
+                    <div className="flex gap-2 mt-2">
+                        {[1,2,3,4].map(i => (
+                            <div key={i} className={`h-1 flex-1 rounded-full ${step >= i ? 'bg-indigo-600' : 'bg-gray-200'}`}/>
+                        ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 text-right">Step {step} of 4</p>
+                </div>
                 
-                {step === 1 && (
-                    <div className="space-y-4">
-                        <input className="w-full p-2 border rounded" placeholder="Employee Code (ID)" value={data.code || ''} onChange={e => setData({...data, code: e.target.value})} />
-                        <input className="w-full p-2 border rounded" placeholder="Full Name" value={data.name || ''} onChange={e => setData({...data, name: e.target.value})} />
-                        <select className="w-full p-2 border rounded" value={data.company || ''} onChange={e => setData({...data, company: e.target.value})}>
-                            <option value="">Select Company</option>
-                            {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <input type="date" className="w-full p-2 border rounded" value={data.joiningDate} onChange={e => setData({...data, joiningDate: e.target.value})} />
-                    </div>
-                )}
-
-                {step === 2 && (
-                    <div className="space-y-4">
-                        <input className="w-full p-2 border rounded" placeholder="Designation" value={data.designation || ''} onChange={e => setData({...data, designation: e.target.value})} />
-                        <select className="w-full p-2 border rounded" value={data.team || 'Internal Team'} onChange={e => setData({...data, team: e.target.value as any})}>
-                             <option value="Internal Team">Internal Team</option>
-                             <option value="External Team">External Team</option>
-                             <option value="Office Staff">Office Staff</option>
-                        </select>
-                         <select className="w-full p-2 border rounded" value={data.type || StaffType.WORKER} onChange={e => setData({...data, type: e.target.value as any})}>
-                             <option value={StaffType.WORKER}>Worker</option>
-                             <option value={StaffType.OFFICE}>Office Staff</option>
-                        </select>
-                    </div>
-                )}
-
-                {step === 3 && (
-                    <div className="space-y-4">
-                        <h4 className="font-bold text-sm">Salary Details</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                             <input type="number" className="p-2 border rounded" placeholder="Basic" value={data.salary?.basic} onChange={e => setData({...data, salary: {...data.salary!, basic: parseFloat(e.target.value)}})} />
-                             <input type="number" className="p-2 border rounded" placeholder="Housing" value={data.salary?.housing} onChange={e => setData({...data, salary: {...data.salary!, housing: parseFloat(e.target.value)}})} />
-                             <input type="number" className="p-2 border rounded" placeholder="Transport" value={data.salary?.transport} onChange={e => setData({...data, salary: {...data.salary!, transport: parseFloat(e.target.value)}})} />
-                             <input type="number" className="p-2 border rounded" placeholder="Other" value={data.salary?.other} onChange={e => setData({...data, salary: {...data.salary!, other: parseFloat(e.target.value)}})} />
+                <div className="flex-1 overflow-y-auto p-1">
+                    {step === 1 && (
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-sm text-gray-700">Personal Info</h4>
+                            <input className="w-full p-2 border rounded" placeholder="Employee Code (ID)" value={data.code || ''} onChange={e => setData({...data, code: e.target.value})} />
+                            <input className="w-full p-2 border rounded" placeholder="Full Name" value={data.name || ''} onChange={e => setData({...data, name: e.target.value})} />
+                            <select className="w-full p-2 border rounded" value={data.company || ''} onChange={e => setData({...data, company: e.target.value})}>
+                                <option value="">Select Company</option>
+                                {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs text-gray-500">Joining Date</label><input type="date" className="w-full p-2 border rounded" value={data.joiningDate} onChange={e => setData({...data, joiningDate: e.target.value})} /></div>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <div className="flex justify-between mt-6">
-                    {step > 1 ? <button onClick={() => setStep(step - 1)} className="px-4 py-2 border rounded">Back</button> : <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>}
-                    {step < 3 ? <button onClick={() => setStep(step + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded">Next</button> : <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded">Finish</button>}
+                    {step === 2 && (
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-sm text-gray-700">Job Details</h4>
+                            <input className="w-full p-2 border rounded" placeholder="Designation" value={data.designation || ''} onChange={e => setData({...data, designation: e.target.value})} />
+                            <input className="w-full p-2 border rounded" placeholder="Department" value={data.department || ''} onChange={e => setData({...data, department: e.target.value})} />
+                            <select className="w-full p-2 border rounded" value={data.team || 'Internal Team'} onChange={e => setData({...data, team: e.target.value as any})}>
+                                <option value="Internal Team">Internal Team</option>
+                                <option value="External Team">External Team</option>
+                                <option value="Office Staff">Office Staff</option>
+                            </select>
+                            <select className="w-full p-2 border rounded" value={data.type || StaffType.WORKER} onChange={e => setData({...data, type: e.target.value as any})}>
+                                <option value={StaffType.WORKER}>Worker</option>
+                                <option value={StaffType.OFFICE}>Office Staff</option>
+                            </select>
+                            <input className="w-full p-2 border rounded" placeholder="Work Location" value={data.workLocation || ''} onChange={e => setData({...data, workLocation: e.target.value})} />
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-sm text-gray-700">Salary & Documents</h4>
+                            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded mb-4">
+                                <input type="number" className="p-2 border rounded" placeholder="Basic" value={data.salary?.basic} onChange={e => setData({...data, salary: {...data.salary!, basic: parseFloat(e.target.value)}})} />
+                                <input type="number" className="p-2 border rounded" placeholder="Housing" value={data.salary?.housing} onChange={e => setData({...data, salary: {...data.salary!, housing: parseFloat(e.target.value)}})} />
+                                <input type="number" className="p-2 border rounded" placeholder="Transport" value={data.salary?.transport} onChange={e => setData({...data, salary: {...data.salary!, transport: parseFloat(e.target.value)}})} />
+                                <input type="number" className="p-2 border rounded" placeholder="Other" value={data.salary?.other} onChange={e => setData({...data, salary: {...data.salary!, other: parseFloat(e.target.value)}})} />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <input className="p-2 border rounded" placeholder="Emirates ID" value={data.documents?.emiratesId || ''} onChange={e => setData({...data, documents: {...data.documents, emiratesId: e.target.value}})} />
+                                <div><label className="text-xs text-gray-500">EID Expiry</label><input type="date" className="w-full p-2 border rounded" value={data.documents?.emiratesIdExpiry || ''} onChange={e => setData({...data, documents: {...data.documents, emiratesIdExpiry: e.target.value}})} /></div>
+                                <input className="p-2 border rounded" placeholder="Passport No" value={data.documents?.passportNumber || ''} onChange={e => setData({...data, documents: {...data.documents, passportNumber: e.target.value}})} />
+                                <div><label className="text-xs text-gray-500">Passport Expiry</label><input type="date" className="w-full p-2 border rounded" value={data.documents?.passportExpiry || ''} onChange={e => setData({...data, documents: {...data.documents, passportExpiry: e.target.value}})} /></div>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 4 && (
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-sm text-gray-700">Review Details</h4>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm bg-gray-50 p-4 rounded border">
+                                <span className="text-gray-500">Code:</span><span className="font-mono font-bold">{data.code}</span>
+                                <span className="text-gray-500">Name:</span><span className="font-bold">{data.name}</span>
+                                <span className="text-gray-500">Company:</span><span>{data.company}</span>
+                                <span className="text-gray-500">Designation:</span><span>{data.designation}</span>
+                                <span className="text-gray-500">Team:</span><span>{data.team}</span>
+                                <span className="text-gray-500">Total Salary:</span><span className="font-bold text-green-600">
+                                    {((data.salary?.basic||0) + (data.salary?.housing||0) + (data.salary?.transport||0) + (data.salary?.other||0)).toLocaleString()}
+                                </span>
+                            </div>
+                            <p className="text-center text-gray-500 text-sm mt-4">Please confirm all details are correct before finalizing.</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-between mt-6 pt-4 border-t">
+                    {step > 1 ? <button onClick={() => setStep(step - 1)} className="px-4 py-2 border rounded hover:bg-gray-50">Back</button> : <button onClick={onClose} className="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>}
+                    {step < 4 ? <button onClick={() => setStep(step + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Next</button> : <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"><CheckCircle className="w-4 h-4"/> Complete Onboarding</button>}
                 </div>
             </div>
         </div>
@@ -754,8 +836,27 @@ const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
         deductions: 0,
         netSettlement: 0,
         assetsReturned: false,
-        notes: ''
+        notes: '',
+        documents: []
     });
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const base64 = await readFileAsBase64(file);
+            setDetails(prev => ({
+                ...prev,
+                documents: [...(prev.documents || []), { name: file.name, data: base64 }]
+            }));
+        }
+    };
+
+    const removeFile = (index: number) => {
+        setDetails(prev => ({
+            ...prev,
+            documents: prev.documents?.filter((_, i) => i !== index)
+        }));
+    };
 
     const handleOffboard = () => {
         offboardEmployee(employee.id, details);
@@ -783,6 +884,22 @@ const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
                          <div><label className="text-xs">Salary Dues</label><input type="number" className="w-full p-1 border" value={details.salaryDues} onChange={e => setDetails({...details, salaryDues: parseFloat(e.target.value)})} /></div>
                          <div><label className="text-xs">Other Dues</label><input type="number" className="w-full p-1 border" value={details.otherDues} onChange={e => setDetails({...details, otherDues: parseFloat(e.target.value)})} /></div>
                          <div><label className="text-xs">Deductions</label><input type="number" className="w-full p-1 border" value={details.deductions} onChange={e => setDetails({...details, deductions: parseFloat(e.target.value)})} /></div>
+                     </div>
+
+                     {/* Document Upload */}
+                     <div className="border p-3 rounded-lg bg-blue-50">
+                        <label className="text-sm font-bold text-blue-800 flex items-center gap-2 mb-2">
+                            <Upload className="w-4 h-4" /> Upload Documents (e.g. Resignation Letter, Clearance)
+                        </label>
+                        <input type="file" onChange={handleFileChange} className="text-xs w-full mb-2" />
+                        <ul className="space-y-1">
+                            {details.documents?.map((doc, idx) => (
+                                <li key={idx} className="flex justify-between items-center text-xs bg-white p-1 rounded border">
+                                    <span className="truncate max-w-[200px]">{doc.name}</span>
+                                    <button onClick={() => removeFile(idx)} className="text-red-500 hover:text-red-700"><XCircle className="w-3 h-3"/></button>
+                                </li>
+                            ))}
+                        </ul>
                      </div>
                      
                      <div className="flex items-center gap-2">
@@ -914,114 +1031,262 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
     const absent = recs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
     const deduction = Math.round((gross / 30) * absent);
     
-    const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(recs, employee.team);
+    const { overtimePay, holidayPay, weekOffPay, totalOTHours } = calculateAdditionalEarnings(recs, employee.team);
     const additions = overtimePay + holidayPay + weekOffPay;
     const net = gross - deduction + additions;
 
+    const [scale, setScale] = useState(1);
+
     return (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 print:p-0 print:bg-white">
-             <div className="bg-white w-full max-w-2xl p-8 rounded-xl shadow-2xl print:shadow-none print:w-full">
-                 <div className="text-center mb-8 border-b pb-4">
-                     <h1 className="text-2xl font-bold uppercase text-gray-900">{employee.company}</h1>
-                     <p className="text-sm text-gray-500">Payslip for {new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-8 mb-8">
-                     <div>
-                         <p className="text-xs text-gray-500 uppercase">Employee Name</p>
-                         <p className="font-bold">{employee.name}</p>
-                         <p className="text-xs text-gray-500 uppercase mt-2">Designation</p>
-                         <p className="font-bold">{employee.designation}</p>
+        <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col h-screen w-screen print:bg-white print:relative print:h-auto print:w-auto">
+             {/* Toolbar - Hidden on Print */}
+             <div className="bg-gray-900 text-white p-4 flex justify-between items-center print:hidden z-50">
+                 <h2 className="font-bold">Payslip Preview</h2>
+                 <div className="flex gap-4 items-center">
+                     <div className="flex bg-gray-800 rounded p-1">
+                        <button onClick={() => setScale(Math.max(0.5, scale - 0.1))} className="p-2 hover:bg-gray-700 rounded"><ZoomOut className="w-4 h-4"/></button>
+                        <span className="px-3 py-2 text-sm min-w-[60px] text-center">{Math.round(scale * 100)}%</span>
+                        <button onClick={() => setScale(Math.min(2, scale + 0.1))} className="p-2 hover:bg-gray-700 rounded"><ZoomIn className="w-4 h-4"/></button>
+                        <button onClick={() => setScale(1)} className="p-2 hover:bg-gray-700 rounded ml-2"><RotateCcw className="w-4 h-4"/></button>
                      </div>
-                     <div className="text-right">
-                         <p className="text-xs text-gray-500 uppercase">Employee Code</p>
-                         <p className="font-bold">{employee.code}</p>
-                         <p className="text-xs text-gray-500 uppercase mt-2">Bank Account</p>
-                         <p className="font-bold">{employee.iban || 'Cash'}</p>
+                     <button onClick={() => window.print()} className="bg-indigo-600 px-4 py-2 rounded hover:bg-indigo-700 flex items-center gap-2"><Printer className="w-4 h-4"/> Print</button>
+                     <button onClick={onClose} className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600">Close</button>
+                 </div>
+             </div>
+
+             {/* Scrollable Preview Area */}
+             <div className="flex-1 overflow-auto bg-gray-500 flex justify-center p-8 print:p-0 print:overflow-visible print:bg-white">
+                 <div 
+                    className="bg-white shadow-2xl w-[210mm] min-h-[297mm] p-12 origin-top transition-transform duration-200 print:transform-none print:shadow-none print:w-full print:h-auto print:m-0"
+                    style={{ transform: `scale(${scale})` }}
+                 >
+                     <div className="text-center mb-8 border-b pb-4">
+                         <h1 className="text-2xl font-bold uppercase text-gray-900">{employee.company}</h1>
+                         <p className="text-sm text-gray-500">Payslip for {new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
                      </div>
-                 </div>
 
-                 <div className="border rounded-lg overflow-hidden mb-6">
-                     <table className="w-full text-sm">
-                         <thead className="bg-gray-100 border-b">
-                             <tr>
-                                 <th className="p-3 text-left">Earnings</th>
-                                 <th className="p-3 text-right">Amount (AED)</th>
-                                 <th className="p-3 text-left border-l">Deductions</th>
-                                 <th className="p-3 text-right">Amount (AED)</th>
-                             </tr>
-                         </thead>
-                         <tbody>
-                             <tr>
-                                 <td className="p-2">Basic Salary</td>
-                                 <td className="p-2 text-right">{basic.toLocaleString()}</td>
-                                 <td className="p-2 border-l">Absent Deduction ({absent} days)</td>
-                                 <td className="p-2 text-right text-red-600">{deduction.toLocaleString()}</td>
-                             </tr>
-                             <tr>
-                                 <td className="p-2">Housing Allowance</td>
-                                 <td className="p-2 text-right">{housing.toLocaleString()}</td>
-                                 <td className="p-2 border-l"></td>
-                                 <td className="p-2 text-right"></td>
-                             </tr>
-                             <tr>
-                                 <td className="p-2">Transport Allowance</td>
-                                 <td className="p-2 text-right">{transport.toLocaleString()}</td>
-                                 <td className="p-2 border-l"></td>
-                                 <td className="p-2 text-right"></td>
-                             </tr>
-                             <tr>
-                                 <td className="p-2">Other Allowance</td>
-                                 <td className="p-2 text-right">{other.toLocaleString()}</td>
-                                 <td className="p-2 border-l"></td>
-                                 <td className="p-2 text-right"></td>
-                             </tr>
-                             <tr>
-                                 <td className="p-2">Overtime / Additions</td>
-                                 <td className="p-2 text-right text-blue-600">{additions.toLocaleString()}</td>
-                                 <td className="p-2 border-l"></td>
-                                 <td className="p-2 text-right"></td>
-                             </tr>
-                         </tbody>
-                         <tfoot className="bg-gray-50 font-bold border-t">
-                             <tr>
-                                 <td className="p-3">Total Earnings</td>
-                                 <td className="p-3 text-right">{(gross + additions).toLocaleString()}</td>
-                                 <td className="p-3 border-l">Total Deductions</td>
-                                 <td className="p-3 text-right text-red-600">{deduction.toLocaleString()}</td>
-                             </tr>
-                         </tfoot>
-                     </table>
-                 </div>
+                     <div className="grid grid-cols-2 gap-8 mb-8">
+                         <div>
+                             <p className="text-xs text-gray-500 uppercase">Employee Name</p>
+                             <p className="font-bold">{employee.name}</p>
+                             <p className="text-xs text-gray-500 uppercase mt-2">Designation</p>
+                             <p className="font-bold">{employee.designation}</p>
+                         </div>
+                         <div className="text-right">
+                             <p className="text-xs text-gray-500 uppercase">Employee Code</p>
+                             <p className="font-bold">{employee.code}</p>
+                             <p className="text-xs text-gray-500 uppercase mt-2">Bank Account</p>
+                             <p className="font-bold">{employee.iban || 'Cash'}</p>
+                         </div>
+                     </div>
 
-                 <div className="flex justify-between items-center p-4 bg-indigo-50 rounded-lg mb-8">
-                     <span className="text-lg font-bold text-indigo-900">Net Salary Payable</span>
-                     <span className="text-2xl font-bold text-indigo-600">AED {net.toLocaleString()}</span>
-                 </div>
+                     <div className="border rounded-lg overflow-hidden mb-6">
+                         <table className="w-full text-sm">
+                             <thead className="bg-gray-100 border-b">
+                                 <tr>
+                                     <th className="p-3 text-left">Earnings</th>
+                                     <th className="p-3 text-right">Amount (AED)</th>
+                                     <th className="p-3 text-left border-l">Deductions</th>
+                                     <th className="p-3 text-right">Amount (AED)</th>
+                                 </tr>
+                             </thead>
+                             <tbody>
+                                 <tr>
+                                     <td className="p-2">Basic Salary</td>
+                                     <td className="p-2 text-right">{basic.toLocaleString()}</td>
+                                     <td className="p-2 border-l">Absent Deduction ({absent} days)</td>
+                                     <td className="p-2 text-right text-red-600">{deduction.toLocaleString()}</td>
+                                 </tr>
+                                 <tr>
+                                     <td className="p-2">Housing Allowance</td>
+                                     <td className="p-2 text-right">{housing.toLocaleString()}</td>
+                                     <td className="p-2 border-l"></td>
+                                     <td className="p-2 text-right"></td>
+                                 </tr>
+                                 <tr>
+                                     <td className="p-2">Transport Allowance</td>
+                                     <td className="p-2 text-right">{transport.toLocaleString()}</td>
+                                     <td className="p-2 border-l"></td>
+                                     <td className="p-2 text-right"></td>
+                                 </tr>
+                                 <tr>
+                                     <td className="p-2">Other Allowance</td>
+                                     <td className="p-2 text-right">{other.toLocaleString()}</td>
+                                     <td className="p-2 border-l"></td>
+                                     <td className="p-2 text-right"></td>
+                                 </tr>
+                                 {additions > 0 && (
+                                    <tr>
+                                        <td className="p-2">
+                                            Overtime & Additions 
+                                            <span className="block text-[10px] text-gray-500">
+                                                (OT: {totalOTHours} hrs, Holidays: {holidayPay > 0 ? 'Yes' : 'No'}, W/O: {weekOffPay > 0 ? 'Yes' : 'No'})
+                                            </span>
+                                        </td>
+                                        <td className="p-2 text-right text-blue-600">{additions.toLocaleString()}</td>
+                                        <td className="p-2 border-l"></td>
+                                        <td className="p-2 text-right"></td>
+                                    </tr>
+                                 )}
+                             </tbody>
+                             <tfoot className="bg-gray-50 font-bold border-t">
+                                 <tr>
+                                     <td className="p-3">Total Earnings</td>
+                                     <td className="p-3 text-right">{(gross + additions).toLocaleString()}</td>
+                                     <td className="p-3 border-l">Total Deductions</td>
+                                     <td className="p-3 text-right text-red-600">{deduction.toLocaleString()}</td>
+                                 </tr>
+                             </tfoot>
+                         </table>
+                     </div>
 
-                 <div className="flex justify-between mt-12 text-xs text-gray-400 print:mt-24">
-                     <div className="text-center w-32 border-t pt-2">Employee Signature</div>
-                     <div className="text-center w-32 border-t pt-2">Manager Signature</div>
-                 </div>
-                 
-                 <div className="mt-8 flex justify-center gap-4 print:hidden">
-                     <button onClick={() => window.print()} className="bg-gray-900 text-white px-6 py-2 rounded hover:bg-gray-800 flex items-center gap-2"><Printer className="w-4 h-4"/> Print</button>
-                     <button onClick={onClose} className="border border-gray-300 px-6 py-2 rounded hover:bg-gray-50">Close</button>
+                     <div className="flex justify-between items-center p-4 bg-indigo-50 rounded-lg mb-8">
+                         <span className="text-lg font-bold text-indigo-900">Net Salary Payable</span>
+                         <span className="text-2xl font-bold text-indigo-600">AED {net.toLocaleString()}</span>
+                     </div>
+
+                     <div className="flex justify-between mt-12 text-xs text-gray-400 print:mt-24">
+                         <div className="text-center w-32 border-t pt-2">Employee Signature</div>
+                         <div className="text-center w-32 border-t pt-2">Manager Signature</div>
+                     </div>
                  </div>
              </div>
         </div>
     )
 }
 
-const ReportsView = ({ companies }: { companies: string[] }) => {
+const ReportsView = ({ employees, attendance }: { employees: Employee[], attendance: AttendanceRecord[] }) => {
+    const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [reportType, setReportType] = useState<'Summary' | 'Detailed'>('Summary');
+    const [filteredData, setFilteredData] = useState<any[]>([]);
+    const [totals, setTotals] = useState({ hours: 0, cost: 0, ot: 0, absent: 0 });
+
+    useEffect(() => {
+        // Filter records by date
+        const relevantRecords = attendance.filter(r => r.date >= startDate && r.date <= endDate);
+        
+        // Group by Employee
+        const reportData = employees.map(emp => {
+            const empRecs = relevantRecords.filter(r => r.employeeId === emp.id);
+            const present = empRecs.filter(r => r.status === AttendanceStatus.PRESENT).length;
+            const absent = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
+            const leaves = empRecs.filter(r => r.status === AttendanceStatus.SICK_LEAVE || r.status === AttendanceStatus.ANNUAL_LEAVE).length;
+            const otHours = empRecs.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
+            
+            const dailySalary = (emp.salary.basic + emp.salary.housing + emp.salary.transport + emp.salary.other) / 30;
+            const otCost = emp.team === 'Office Staff' ? 0 : otHours * 5; // 5 AED per hour OT
+            const salaryCost = Math.round(dailySalary * (present + leaves)); // Basic calculation
+            const totalCost = salaryCost + otCost;
+
+            return {
+                name: emp.name,
+                company: emp.company,
+                team: emp.team,
+                present,
+                absent,
+                leaves,
+                otHours,
+                totalCost
+            };
+        }).filter(d => d.present > 0 || d.absent > 0 || d.leaves > 0); // Only show active in period
+
+        setFilteredData(reportData);
+        
+        setTotals({
+            hours: reportData.reduce((sum, d) => sum + (d.present * 8), 0), // Approx
+            cost: reportData.reduce((sum, d) => sum + d.totalCost, 0),
+            ot: reportData.reduce((sum, d) => sum + d.otHours, 0),
+            absent: reportData.reduce((sum, d) => sum + d.absent, 0)
+        });
+
+    }, [startDate, endDate, employees, attendance]);
+
     return (
-        <div className="text-center py-20 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-            <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900">Reports Dashboard</h3>
-            <p className="text-gray-500 max-w-md mx-auto mt-2">
-                Detailed analytics for {companies.length} companies coming soon. 
-                Will include Overtime Trends, Absenteeism Rate, and Project Costing.
-            </p>
+        <div className="max-w-6xl mx-auto space-y-6 p-6">
+            <div className="flex justify-between items-end print:hidden">
+                <div className="flex gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">From</label>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border p-2 rounded bg-white" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">To</label>
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded bg-white" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Type</label>
+                        <select value={reportType} onChange={e => setReportType(e.target.value as any)} className="border p-2 rounded bg-white">
+                            <option value="Summary">Summary Report</option>
+                            <option value="Detailed">Detailed Breakdown</option>
+                        </select>
+                    </div>
+                </div>
+                <button onClick={() => window.print()} className="bg-gray-900 text-white px-4 py-2 rounded flex items-center gap-2">
+                    <Printer className="w-4 h-4"/> Print Report
+                </button>
+            </div>
+
+            {/* Report Content */}
+            <div className="bg-white p-8 rounded-xl shadow-sm border print:shadow-none print:border-none">
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl font-bold text-gray-900">Workforce Analytics Report</h2>
+                    <p className="text-gray-500 text-sm">Period: {startDate} to {endDate}</p>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-4 gap-4 mb-8">
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                        <p className="text-xs text-blue-600 uppercase font-bold">Est. Cost</p>
+                        <p className="text-2xl font-bold text-blue-900">AED {totals.cost.toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+                        <p className="text-xs text-green-600 uppercase font-bold">Total OT Hours</p>
+                        <p className="text-2xl font-bold text-green-900">{totals.ot}</p>
+                    </div>
+                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
+                        <p className="text-xs text-orange-600 uppercase font-bold">Absent Days</p>
+                        <p className="text-2xl font-bold text-orange-900">{totals.absent}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-xs text-gray-600 uppercase font-bold">Employees Active</p>
+                        <p className="text-2xl font-bold text-gray-900">{filteredData.length}</p>
+                    </div>
+                </div>
+
+                {/* Table */}
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-700 font-bold uppercase border-b">
+                        <tr>
+                            <th className="p-3">Employee</th>
+                            <th className="p-3">Company</th>
+                            <th className="p-3 text-center">Present</th>
+                            <th className="p-3 text-center">Absent</th>
+                            <th className="p-3 text-center">OT (Hrs)</th>
+                            <th className="p-3 text-right">Est. Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {filteredData.map((row, idx) => (
+                            <tr key={idx}>
+                                <td className="p-3 font-medium">{row.name}</td>
+                                <td className="p-3 text-gray-500 text-xs">{row.company}</td>
+                                <td className="p-3 text-center">{row.present}</td>
+                                <td className="p-3 text-center text-red-500">{row.absent}</td>
+                                <td className="p-3 text-center text-blue-600 font-bold">{row.otHours}</td>
+                                <td className="p-3 text-right font-mono">AED {row.totalCost.toLocaleString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold border-t">
+                        <tr>
+                            <td className="p-3" colSpan={4}>TOTAL</td>
+                            <td className="p-3 text-center text-blue-600">{totals.ot}</td>
+                            <td className="p-3 text-right">AED {totals.cost.toLocaleString()}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
         </div>
     )
 }
@@ -1091,6 +1356,17 @@ function App() {
     setLeaveRequests(getLeaveRequests());
     setCompanies(getCompanies());
     loadAttendanceForMonth(currentDate);
+  };
+
+  const handleDashboardFilter = (filterType: 'team' | 'company' | 'status', value: string) => {
+      setActiveTab('directory');
+      setSelectedTeam('All');
+      setSelectedCompany('All');
+      setSelectedStatus('All');
+
+      if (filterType === 'team') setSelectedTeam(value);
+      if (filterType === 'company') setSelectedCompany(value);
+      if (filterType === 'status') setSelectedStatus(value);
   };
 
   // Filter Logic
@@ -1232,39 +1508,39 @@ function App() {
 
                  {currentUser.permissions.canManageAttendance && <SmartCommand onUpdate={handleRefresh} />}
                  
-                 {/* Main Stats */}
+                 {/* Main Stats - Clickable for Drill Down */}
                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <button onClick={() => handleDashboardFilter('status', 'Active')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left">
                         <div>
                             <p className="text-gray-500 text-sm">Total Active Staff</p>
                             <h3 className="text-3xl font-bold text-indigo-600 mt-1">{employees.filter(e => e.active).length}</h3>
                         </div>
                         <div className="p-3 bg-indigo-50 rounded-lg"><Users className="w-6 h-6 text-indigo-600"/></div>
-                    </div>
+                    </button>
                     
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <button onClick={() => handleDashboardFilter('team', 'Internal Team')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left">
                          <div>
                             <p className="text-gray-500 text-sm">Internal Team</p>
                             <h3 className="text-3xl font-bold text-green-600 mt-1">{teamStats['Internal Team'] || 0}</h3>
                         </div>
                          <div className="p-3 bg-green-50 rounded-lg"><Users className="w-6 h-6 text-green-600"/></div>
-                    </div>
+                    </button>
 
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <button onClick={() => handleDashboardFilter('team', 'External Team')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left">
                          <div>
                             <p className="text-gray-500 text-sm">External Team</p>
                             <h3 className="text-3xl font-bold text-orange-600 mt-1">{teamStats['External Team'] || 0}</h3>
                         </div>
                          <div className="p-3 bg-orange-50 rounded-lg"><Users className="w-6 h-6 text-orange-600"/></div>
-                    </div>
+                    </button>
 
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <button onClick={() => handleDashboardFilter('team', 'Office Staff')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left">
                          <div>
                             <p className="text-gray-500 text-sm">Office Staff</p>
                             <h3 className="text-3xl font-bold text-blue-600 mt-1">{teamStats['Office Staff'] || 0}</h3>
                         </div>
                          <div className="p-3 bg-blue-50 rounded-lg"><Briefcase className="w-6 h-6 text-blue-600"/></div>
-                    </div>
+                    </button>
                  </div>
 
                  {/* Company Breakdown */}
@@ -1273,10 +1549,10 @@ function App() {
                          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Building2 className="w-5 h-5"/> Staff by Company</h3>
                          <div className="space-y-3">
                              {Object.entries(companyStats).map(([company, count]) => (
-                                 <div key={company} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                 <button key={company} onClick={() => handleDashboardFilter('company', company)} className="w-full flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                                      <span className="text-sm font-medium text-gray-700 truncate max-w-[300px]" title={company}>{company}</span>
                                      <span className="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-1 rounded-full">{count}</span>
-                                 </div>
+                                 </button>
                              ))}
                          </div>
                      </div>
@@ -1639,7 +1915,7 @@ function App() {
              </div>
         )}
 
-        {activeTab === 'reports' && <ReportsView companies={companies} />}
+        {activeTab === 'reports' && <ReportsView employees={employees} attendance={attendance} />}
       </main>
 
       {/* Modals */}
