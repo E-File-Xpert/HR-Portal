@@ -216,7 +216,7 @@ const DocumentPreviewModal = ({ isOpen, onClose, attachment }: any) => {
                     {!isImage && !isPdf && (
                         <div className="text-center bg-white p-8 rounded shadow">
                             <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500 mb-4">Preview not available for this file type.</p>
+                            <p className="text-gray-500 mb-4">Preview not available.</p>
                             <a href={attachment} download="document" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2 mx-auto w-fit">
                                 <Download className="w-4 h-4" /> Download File
                             </a>
@@ -588,6 +588,7 @@ const UserManagementModal = ({ isOpen, onClose }: any) => {
         canViewPayroll: false, canManagePayroll: false, canViewReports: false,
         canManageUsers: false, canManageSettings: false
     });
+    const [searchTerm, setSearchTerm] = useState('');
 
     const togglePermission = (key: string) => setPermissions(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
 
@@ -630,6 +631,11 @@ const UserManagementModal = ({ isOpen, onClose }: any) => {
 
     if (!isOpen) return null;
 
+    const filteredUsers = users.filter(u => 
+        u.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        u.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl p-6 flex flex-col max-h-[90vh]">
@@ -668,13 +674,27 @@ const UserManagementModal = ({ isOpen, onClose }: any) => {
                     </button>
                 </div>
 
+                <div className="mb-4 flex justify-between items-center">
+                    <div className="relative">
+                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                         <input 
+                            type="text" 
+                            placeholder="Search users..." 
+                            value={searchTerm} 
+                            onChange={e => setSearchTerm(e.target.value)} 
+                            className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
+                         />
+                    </div>
+                    <div className="text-sm text-gray-500">Total Users: <span className="font-bold">{filteredUsers.filter(u => u.role !== UserRole.CREATOR).length}</span></div>
+                </div>
+
                 <div className="overflow-y-auto flex-1">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-100 font-bold sticky top-0">
                             <tr><th className="p-2">Username</th><th className="p-2">Name</th><th className="p-2">Role</th><th className="p-2 text-right">Action</th></tr>
                         </thead>
                         <tbody>
-                            {users.filter(u => u.role !== UserRole.CREATOR).map(u => (
+                            {filteredUsers.filter(u => u.role !== UserRole.CREATOR).map(u => (
                                 <tr key={u.username} className={`border-b ${isEditing && originalUsername === u.username ? 'bg-blue-50' : ''}`}>
                                     <td className="p-2 font-mono">{u.username}</td>
                                     <td className="p-2">{u.name}</td>
@@ -1057,16 +1077,16 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                                     <input type="number" className="w-full p-2 border rounded" value={data.salary?.transport} onChange={e => handleSalaryChange('transport', e.target.value)} />
                                 </div>
                                 <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Other</label>
+                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.other} onChange={e => handleSalaryChange('other', e.target.value)} />
+                                </div>
+                                <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Air Ticket</label>
                                     <input type="number" className="w-full p-2 border rounded" value={data.salary?.airTicket} onChange={e => handleSalaryChange('airTicket', e.target.value)} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Leave Payment</label>
                                     <input type="number" className="w-full p-2 border rounded" value={data.salary?.leaveSalary} onChange={e => handleSalaryChange('leaveSalary', e.target.value)} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Other</label>
-                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.other} onChange={e => handleSalaryChange('other', e.target.value)} />
                                 </div>
                             </div>
                         </div>
@@ -1169,9 +1189,307 @@ const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any)
     );
 };
 
+const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
+    const [details, setDetails] = useState<OffboardingDetails>({
+        type: 'Resignation',
+        exitDate: new Date().toISOString().split('T')[0],
+        reason: '',
+        gratuity: 0,
+        leaveEncashment: 0,
+        salaryDues: 0,
+        otherDues: 0,
+        deductions: 0,
+        netSettlement: 0,
+        assetsReturned: false,
+        notes: ''
+    });
+
+    // Auto-calculate net
+    useEffect(() => {
+        const net = (Number(details.gratuity) || 0) + 
+                    (Number(details.leaveEncashment) || 0) + 
+                    (Number(details.salaryDues) || 0) + 
+                    (Number(details.otherDues) || 0) - 
+                    (Number(details.deductions) || 0);
+        setDetails(prev => ({ ...prev, netSettlement: net }));
+    }, [details.gratuity, details.leaveEncashment, details.salaryDues, details.otherDues, details.deductions]);
+
+    const handleSubmit = () => {
+        if (!details.exitDate || !details.type) return alert("Please fill required fields");
+        offboardEmployee(employee.id, details);
+        onComplete();
+    };
+
+    const handleChange = (field: string, value: any) => {
+        setDetails(prev => ({ ...prev, [field]: value }));
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col max-h-[90vh]">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-red-600">Offboarding: {employee.name}</h3>
+                        <p className="text-sm text-gray-500">{employee.designation} - {employee.code}</p>
+                    </div>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
+                </div>
+
+                <div className="overflow-y-auto flex-1 space-y-4 pr-2">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Exit Date</label>
+                            <input type="date" className="w-full p-2 border rounded" value={details.exitDate} onChange={e => handleChange('exitDate', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Type</label>
+                            <select className="w-full p-2 border rounded" value={details.type} onChange={e => handleChange('type', e.target.value)}>
+                                <option value="Resignation">Resignation</option>
+                                <option value="Termination">Termination</option>
+                                <option value="End of Contract">End of Contract</option>
+                                <option value="Absconding">Absconding</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                         <label className="block text-xs font-bold text-gray-500 mb-1">Reason</label>
+                         <textarea className="w-full p-2 border rounded h-20" value={details.reason} onChange={e => handleChange('reason', e.target.value)}></textarea>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded border">
+                        <h4 className="font-bold text-sm mb-2">Final Settlement Calculation</h4>
+                        <div className="grid grid-cols-2 gap-4 mb-2">
+                            <div><label className="text-xs">Gratuity</label><input type="number" className="w-full p-1 border rounded" value={details.gratuity} onChange={e => handleChange('gratuity', parseFloat(e.target.value))} /></div>
+                            <div><label className="text-xs">Leave Encashment</label><input type="number" className="w-full p-1 border rounded" value={details.leaveEncashment} onChange={e => handleChange('leaveEncashment', parseFloat(e.target.value))} /></div>
+                            <div><label className="text-xs">Salary Dues</label><input type="number" className="w-full p-1 border rounded" value={details.salaryDues} onChange={e => handleChange('salaryDues', parseFloat(e.target.value))} /></div>
+                            <div><label className="text-xs">Other Dues</label><input type="number" className="w-full p-1 border rounded" value={details.otherDues} onChange={e => handleChange('otherDues', parseFloat(e.target.value))} /></div>
+                            <div><label className="text-xs text-red-600">Deductions</label><input type="number" className="w-full p-1 border rounded border-red-200" value={details.deductions} onChange={e => handleChange('deductions', parseFloat(e.target.value))} /></div>
+                        </div>
+                        <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                            <span className="font-bold">Net Settlement Amount</span>
+                            <span className="text-xl font-bold text-green-600">AED {details.netSettlement.toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input type="checkbox" checked={details.assetsReturned} onChange={e => handleChange('assetsReturned', e.target.checked)} id="assets" />
+                        <label htmlFor="assets" className="text-sm font-medium">All company assets returned (Laptop, ID, Uniform, etc.)</label>
+                    </div>
+
+                    <div>
+                         <label className="block text-xs font-bold text-gray-500 mb-1">Additional Notes</label>
+                         <textarea className="w-full p-2 border rounded h-16" value={details.notes} onChange={e => handleChange('notes', e.target.value)}></textarea>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button onClick={handleSubmit} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold flex items-center gap-2">
+                        <LogOut className="w-4 h-4" /> Confirm Offboarding
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const PayslipModal = ({ employee, month, year, onClose }: any) => {
+    const [records, setRecords] = useState<AttendanceRecord[]>([]);
+    
+    useEffect(() => {
+        const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+        const end = `${year}-${String(month + 1).padStart(2, '0')}-${new Date(year, month + 1, 0).getDate()}`;
+        setRecords(getAttendanceRange(start, end).filter(r => r.employeeId === employee.id));
+    }, [employee, month, year]);
+
+    const { overtimePay, holidayPay, weekOffPay, totalOTHours } = calculateAdditionalEarnings(records, employee.team);
+    
+    const basic = employee.salary?.basic || 0;
+    const housing = employee.salary?.housing || 0;
+    const transport = employee.salary?.transport || 0;
+    const other = employee.salary?.other || 0;
+    const airTicket = employee.salary?.airTicket || 0;
+    const leaveSalary = employee.salary?.leaveSalary || 0;
+    const gross = basic + housing + transport + other + airTicket + leaveSalary;
+    
+    const absentDays = records.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
+    const deduction = (gross / 30) * absentDays;
+    const totalAdditions = overtimePay + holidayPay + weekOffPay;
+    const net = gross - deduction + totalAdditions;
+
+    const monthName = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="bg-gray-50 p-4 flex justify-between items-center border-b print:hidden">
+                    <h3 className="font-bold text-lg">Payslip Preview</h3>
+                    <div className="flex gap-2">
+                        <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 text-white rounded text-sm"><Printer className="w-4 h-4"/> Print</button>
+                        <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
+                    </div>
+                </div>
+
+                <div className="p-8 overflow-y-auto bg-white" id="payslip-content">
+                    <div className="text-center border-b pb-6 mb-6">
+                        <h1 className="text-2xl font-bold uppercase text-gray-900">{employee.company}</h1>
+                        <p className="text-sm text-gray-500">Payslip for the month of {monthName}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8 mb-8">
+                        <div>
+                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Employee Details</div>
+                            <div className="grid grid-cols-2 gap-y-2 text-sm">
+                                <span className="text-gray-600">Name:</span><span className="font-bold">{employee.name}</span>
+                                <span className="text-gray-600">Code:</span><span>{employee.code}</span>
+                                <span className="text-gray-600">Designation:</span><span>{employee.designation}</span>
+                                <span className="text-gray-600">Department:</span><span>{employee.department}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-gray-500 uppercase font-bold mb-1">Bank Details</div>
+                            <div className="grid grid-cols-2 gap-y-2 text-sm">
+                                <span className="text-gray-600">Bank Name:</span><span>{employee.bankName || '-'}</span>
+                                <span className="text-gray-600">IBAN:</span><span className="font-mono">{employee.iban || '-'}</span>
+                                <span className="text-gray-600">Payment Mode:</span><span>{employee.iban ? 'Bank Transfer' : 'Cash'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mb-8">
+                        <table className="w-full text-sm border border-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="p-2 border text-left">Earnings</th>
+                                    <th className="p-2 border text-right">Amount</th>
+                                    <th className="p-2 border text-left">Deductions</th>
+                                    <th className="p-2 border text-right">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td className="p-2 border">Basic Salary</td>
+                                    <td className="p-2 border text-right">{basic.toLocaleString()}</td>
+                                    <td className="p-2 border">Absent Deduction ({absentDays} days)</td>
+                                    <td className="p-2 border text-right text-red-600">{deduction > 0 ? deduction.toLocaleString(undefined, {maximumFractionDigits: 2}) : '0.00'}</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 border">Housing Allowance</td>
+                                    <td className="p-2 border text-right">{housing.toLocaleString()}</td>
+                                    <td className="p-2 border"></td>
+                                    <td className="p-2 border text-right"></td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 border">Transport Allowance</td>
+                                    <td className="p-2 border text-right">{transport.toLocaleString()}</td>
+                                    <td className="p-2 border"></td>
+                                    <td className="p-2 border text-right"></td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 border">Other Allowances</td>
+                                    <td className="p-2 border text-right">{other.toLocaleString()}</td>
+                                    <td className="p-2 border"></td>
+                                    <td className="p-2 border text-right"></td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 border text-blue-600">Overtime ({totalOTHours} hrs)</td>
+                                    <td className="p-2 border text-right text-blue-600">{overtimePay > 0 ? overtimePay.toLocaleString() : '0.00'}</td>
+                                    <td className="p-2 border"></td>
+                                    <td className="p-2 border text-right"></td>
+                                </tr>
+                                {holidayPay > 0 && (
+                                    <tr>
+                                        <td className="p-2 border text-blue-600">Holiday Pay</td>
+                                        <td className="p-2 border text-right text-blue-600">{holidayPay.toLocaleString()}</td>
+                                        <td className="p-2 border"></td>
+                                        <td className="p-2 border text-right"></td>
+                                    </tr>
+                                )}
+                                 {weekOffPay > 0 && (
+                                    <tr>
+                                        <td className="p-2 border text-blue-600">WeekOff Pay</td>
+                                        <td className="p-2 border text-right text-blue-600">{weekOffPay.toLocaleString()}</td>
+                                        <td className="p-2 border"></td>
+                                        <td className="p-2 border text-right"></td>
+                                    </tr>
+                                )}
+                                <tr className="font-bold bg-gray-50">
+                                    <td className="p-3 border">Total Earnings</td>
+                                    <td className="p-3 border text-right">{(gross + totalAdditions).toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                                    <td className="p-3 border">Total Deductions</td>
+                                    <td className="p-3 border text-right">{deduction.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <div className="bg-gray-900 text-white p-4 rounded-lg min-w-[250px]">
+                            <div className="text-xs text-gray-400 uppercase mb-1">Net Pay</div>
+                            <div className="text-2xl font-bold">AED {net.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+                        </div>
+                    </div>
+                    
+                    <div className="mt-12 pt-8 border-t grid grid-cols-2 gap-8 text-center">
+                        <div>
+                            <div className="h-16 border-b border-gray-300 mb-2"></div>
+                            <div className="text-xs text-gray-500 uppercase">Employer Signature</div>
+                        </div>
+                        <div>
+                             <div className="h-16 border-b border-gray-300 mb-2"></div>
+                             <div className="text-xs text-gray-500 uppercase">Employee Signature</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const RehireModal = ({ employee, onClose, onConfirm }: any) => {
+    const [date, setDate] = useState(formatDateLocal(new Date()));
+    const [reason, setReason] = useState('');
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg flex items-center gap-2"><RefreshCcw className="w-5 h-5 text-green-600"/> Re-hire Employee</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400" /></button>
+                </div>
+                
+                <div className="mb-4 bg-green-50 p-4 rounded border border-green-100">
+                    <p className="text-sm text-green-800">
+                        You are about to reactivate <strong>{employee.name}</strong>. 
+                        Their previous employment history is archived.
+                    </p>
+                </div>
+
+                <div className="space-y-3 mb-6">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Re-joining Date</label>
+                        <input type="date" className="w-full p-2 border rounded" value={date} onChange={e => setDate(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Reason / Notes</label>
+                        <textarea className="w-full p-2 border rounded h-24" placeholder="Why is this employee re-joining?" value={reason} onChange={e => setReason(e.target.value)}></textarea>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-medium">Cancel</button>
+                    <button onClick={() => onConfirm(employee.id, date, reason)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold">Confirm Re-hire</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const ReportsView = ({ employees, attendance }: any) => {
     const [fromDate, setFromDate] = useState(formatDateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
     const [toDate, setToDate] = useState(formatDateLocal(new Date()));
+    const [searchTerm, setSearchTerm] = useState('');
 
     const filterAttendance = () => {
         return attendance.filter((r: any) => r.date >= fromDate && r.date <= toDate);
@@ -1202,22 +1520,25 @@ const ReportsView = ({ employees, attendance }: any) => {
         totalEstCost += basicCost + overtimePay + holidayPay + weekOffPay;
     });
 
-    const employeeStats = employees.filter((e: any) => e.active).map((emp: any) => {
-        const empRecs = filteredRecs.filter((r: any) => r.employeeId === emp.id);
-        const present = empRecs.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
-        const absent = empRecs.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
-        const ot = empRecs.reduce((acc: number, curr: any) => acc + (curr.overtimeHours || 0), 0);
-        
-        // Simplified cost per employee for the table
-        const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = emp.salary || {};
-        const gross = basic + housing + transport + other + airTicket + leaveSalary;
-        const daily = gross / 30;
-        const paid = empRecs.filter((r: any) => r.status !== AttendanceStatus.ABSENT && r.status !== AttendanceStatus.UNPAID_LEAVE).length;
-        const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
-        const cost = (daily * paid) + overtimePay + holidayPay + weekOffPay;
+    const employeeStats = employees
+        .filter((e: any) => e.active)
+        .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .map((emp: any) => {
+            const empRecs = filteredRecs.filter((r: any) => r.employeeId === emp.id);
+            const present = empRecs.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
+            const absent = empRecs.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
+            const ot = empRecs.reduce((acc: number, curr: any) => acc + (curr.overtimeHours || 0), 0);
+            
+            // Simplified cost per employee for the table
+            const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = emp.salary || {};
+            const gross = basic + housing + transport + other + airTicket + leaveSalary;
+            const daily = gross / 30;
+            const paid = empRecs.filter((r: any) => r.status !== AttendanceStatus.ABSENT && r.status !== AttendanceStatus.UNPAID_LEAVE).length;
+            const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
+            const cost = (daily * paid) + overtimePay + holidayPay + weekOffPay;
 
-        return { ...emp, present, absent, ot, cost };
-    });
+            return { ...emp, present, absent, ot, cost };
+        });
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -1261,6 +1582,19 @@ const ReportsView = ({ employees, attendance }: any) => {
                 </div>
             </div>
 
+            <div className="mt-8 mb-4 flex items-center gap-2 max-w-md">
+                 <div className="relative flex-1">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input 
+                         type="text" 
+                         placeholder="Filter by employee name..." 
+                         value={searchTerm} 
+                         onChange={e => setSearchTerm(e.target.value)} 
+                         className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full" 
+                      />
+                 </div>
+            </div>
+
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
                 <table className="w-full text-sm text-left">
                     <thead className="bg-gray-50 text-gray-600 font-bold text-xs uppercase border-b">
@@ -1291,295 +1625,6 @@ const ReportsView = ({ employees, attendance }: any) => {
                         </tr>
                     </tbody>
                 </table>
-            </div>
-        </div>
-    );
-};
-
-const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
-    const [step, setStep] = useState(1);
-    const [details, setDetails] = useState<OffboardingDetails>({
-        type: 'Resignation',
-        exitDate: formatDateLocal(new Date()),
-        reason: '',
-        gratuity: 0,
-        leaveEncashment: 0,
-        salaryDues: 0,
-        otherDues: 0,
-        deductions: 0,
-        netSettlement: 0,
-        assetsReturned: false,
-        notes: '',
-        documents: []
-    });
-
-    const handleChange = (field: keyof OffboardingDetails, value: any) => {
-        setDetails(prev => {
-            const updated = { ...prev, [field]: value };
-            // Auto calc net
-            if (['gratuity', 'leaveEncashment', 'salaryDues', 'otherDues', 'deductions'].includes(field)) {
-                updated.netSettlement = (Number(updated.gratuity) || 0) + 
-                                      (Number(updated.leaveEncashment) || 0) + 
-                                      (Number(updated.salaryDues) || 0) + 
-                                      (Number(updated.otherDues) || 0) - 
-                                      (Number(updated.deductions) || 0);
-            }
-            return updated;
-        });
-    };
-
-    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const base64 = await readFileAsBase64(file);
-            setDetails(prev => ({
-                ...prev,
-                documents: [...(prev.documents || []), { name: file.name, data: base64 }]
-            }));
-        }
-    };
-
-    const handleSubmit = () => {
-        offboardEmployee(employee.id, details);
-        onComplete();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 h-[80vh] flex flex-col">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h3 className="font-bold text-lg text-red-600 flex items-center gap-2"><LogOut className="w-5 h-5"/> Offboard Employee: {employee.name}</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-1">
-                    {step === 1 && (
-                        <div className="space-y-4">
-                            <h4 className="font-bold text-sm">Exit Details</h4>
-                            <select className="w-full p-2 border rounded" value={details.type} onChange={e => handleChange('type', e.target.value)}>
-                                <option value="Resignation">Resignation</option>
-                                <option value="Termination">Termination</option>
-                                <option value="End of Contract">End of Contract</option>
-                                <option value="Absconding">Absconding</option>
-                            </select>
-                            <div>
-                                <label className="text-xs text-gray-500">Exit Date</label>
-                                <input type="date" className="w-full p-2 border rounded" value={details.exitDate} onChange={e => handleChange('exitDate', e.target.value)} />
-                            </div>
-                            <textarea className="w-full p-2 border rounded h-24" placeholder="Reason for leaving..." value={details.reason} onChange={e => handleChange('reason', e.target.value)}></textarea>
-                        </div>
-                    )}
-
-                    {step === 2 && (
-                        <div className="space-y-4">
-                            <h4 className="font-bold text-sm">Final Settlement Calculation</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs">Gratuity</label><input type="number" className="w-full p-2 border rounded" value={details.gratuity} onChange={e => handleChange('gratuity', parseFloat(e.target.value))} /></div>
-                                <div><label className="text-xs">Leave Encashment</label><input type="number" className="w-full p-2 border rounded" value={details.leaveEncashment} onChange={e => handleChange('leaveEncashment', parseFloat(e.target.value))} /></div>
-                                <div><label className="text-xs">Salary Dues</label><input type="number" className="w-full p-2 border rounded" value={details.salaryDues} onChange={e => handleChange('salaryDues', parseFloat(e.target.value))} /></div>
-                                <div><label className="text-xs">Other Dues</label><input type="number" className="w-full p-2 border rounded" value={details.otherDues} onChange={e => handleChange('otherDues', parseFloat(e.target.value))} /></div>
-                                <div><label className="text-xs text-red-600">Deductions</label><input type="number" className="w-full p-2 border rounded border-red-200" value={details.deductions} onChange={e => handleChange('deductions', parseFloat(e.target.value))} /></div>
-                            </div>
-                            <div className="p-4 bg-gray-100 rounded text-right">
-                                <span className="text-sm font-bold text-gray-600">Net Settlement Amount:</span>
-                                <div className="text-2xl font-bold text-gray-900">AED {details.netSettlement.toLocaleString()}</div>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 3 && (
-                        <div className="space-y-4">
-                            <h4 className="font-bold text-sm">Assets & Documents</h4>
-                            <div className="flex items-center gap-2 p-3 border rounded bg-gray-50">
-                                <input type="checkbox" checked={details.assetsReturned} onChange={e => handleChange('assetsReturned', e.target.checked)} className="w-5 h-5 text-indigo-600" />
-                                <span className="text-sm font-medium">All company assets (Laptop, Sim, ID, Tools) returned?</span>
-                            </div>
-                            
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-2">Upload Exit Documents (Resignation Letter, Clearance)</label>
-                                <input type="file" onChange={handleFile} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-                                <ul className="mt-2 space-y-1">
-                                    {details.documents?.map((d, i) => (
-                                        <li key={i} className="text-xs bg-gray-100 p-1 rounded flex justify-between">{d.name}</li>
-                                    ))}
-                                </ul>
-                            </div>
-
-                            <textarea className="w-full p-2 border rounded h-20" placeholder="Additional Notes..." value={details.notes} onChange={e => handleChange('notes', e.target.value)}></textarea>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex justify-between mt-6 border-t pt-4">
-                    {step > 1 ? <button onClick={() => setStep(step - 1)} className="px-4 py-2 border rounded">Back</button> : <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>}
-                    {step < 3 ? <button onClick={() => setStep(step + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded">Next</button> : <button onClick={handleSubmit} className="px-4 py-2 bg-red-600 text-white rounded font-bold">Confirm Offboarding</button>}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const PayslipModal = ({ employee, month, year, onClose }: any) => {
-    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-    
-    useEffect(() => {
-        const start = formatDateLocal(new Date(year, month, 1));
-        const end = formatDateLocal(new Date(year, month + 1, 0));
-        setAttendance(getAttendanceRange(start, end).filter(r => r.employeeId === employee.id));
-    }, [employee, month, year]);
-
-    const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
-    
-    const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = employee.salary || {};
-    const gross = basic + housing + transport + other + airTicket + leaveSalary;
-    
-    const absentDays = attendance.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
-    const deduction = (gross / 30) * absentDays;
-    
-    const { overtimePay, holidayPay, weekOffPay, totalOTHours } = calculateAdditionalEarnings(attendance, employee.team);
-    const totalAdditions = overtimePay + holidayPay + weekOffPay;
-    const netSalary = gross - deduction + totalAdditions;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:p-0 print:static print:bg-white">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-8 print:shadow-none print:w-full print:max-w-none">
-                <div className="flex justify-between items-start mb-8 border-b pb-6 print:border-gray-300">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-indigo-600 p-3 rounded-lg print:hidden"><DollarSign className="w-8 h-8 text-white" /></div>
-                        <div>
-                            <h2 className="text-2xl font-bold text-gray-900">Payslip</h2>
-                            <p className="text-gray-500">{employee.company}</p>
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <h3 className="text-xl font-bold text-gray-800">{monthName} {year}</h3>
-                        <p className="text-sm text-gray-500">Generated on {new Date().toLocaleDateString()}</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-8 mb-8">
-                    <div>
-                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Employee Details</h4>
-                        <div className="space-y-1 text-sm">
-                            <div className="flex justify-between"><span className="text-gray-600">Name:</span> <span className="font-bold">{employee.name}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">Code:</span> <span className="font-mono">{employee.code}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">Designation:</span> <span>{employee.designation}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">Joining Date:</span> <span>{employee.joiningDate}</span></div>
-                        </div>
-                    </div>
-                    <div>
-                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Payment Details</h4>
-                        <div className="space-y-1 text-sm">
-                            <div className="flex justify-between"><span className="text-gray-600">Bank:</span> <span>{employee.bankName || 'Cash'}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">IBAN:</span> <span className="font-mono">{employee.iban || '-'}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">Days Worked:</span> <span>{30 - absentDays} / 30</span></div>
-                            <div className="flex justify-between"><span className="text-gray-600">OT Hours:</span> <span>{totalOTHours}</span></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mb-8">
-                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Earnings & Deductions</h4>
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-50 text-gray-700 font-bold border-b">
-                                <tr>
-                                    <th className="p-3 text-left">Description</th>
-                                    <th className="p-3 text-right">Amount (AED)</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                <tr><td className="p-3">Basic Salary</td><td className="p-3 text-right">{basic.toLocaleString()}</td></tr>
-                                <tr><td className="p-3">Housing Allowance</td><td className="p-3 text-right">{housing.toLocaleString()}</td></tr>
-                                <tr><td className="p-3">Transport Allowance</td><td className="p-3 text-right">{transport.toLocaleString()}</td></tr>
-                                <tr><td className="p-3">Other Allowance</td><td className="p-3 text-right">{other.toLocaleString()}</td></tr>
-                                {airTicket > 0 && <tr><td className="p-3">Air Ticket</td><td className="p-3 text-right">{airTicket.toLocaleString()}</td></tr>}
-                                {leaveSalary > 0 && <tr><td className="p-3">Leave Salary</td><td className="p-3 text-right">{leaveSalary.toLocaleString()}</td></tr>}
-                                
-                                {overtimePay > 0 && <tr><td className="p-3 text-blue-600">Overtime Pay</td><td className="p-3 text-right text-blue-600">{overtimePay.toLocaleString()}</td></tr>}
-                                {holidayPay > 0 && <tr><td className="p-3 text-blue-600">Public Holiday Pay</td><td className="p-3 text-right text-blue-600">{holidayPay.toLocaleString()}</td></tr>}
-                                {weekOffPay > 0 && <tr><td className="p-3 text-blue-600">Friday/Sunday Work Pay</td><td className="p-3 text-right text-blue-600">{weekOffPay.toLocaleString()}</td></tr>}
-                                
-                                {deduction > 0 && <tr><td className="p-3 text-red-600">Absence Deduction ({absentDays} days)</td><td className="p-3 text-right text-red-600">-{deduction.toLocaleString(undefined, {maximumFractionDigits: 0})}</td></tr>}
-                            </tbody>
-                            <tfoot className="bg-gray-50 font-bold text-gray-900">
-                                <tr>
-                                    <td className="p-3 border-t">Net Salary</td>
-                                    <td className="p-3 text-right border-t text-lg">{netSalary.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-
-                <div className="mt-12 flex justify-between items-end print:hidden">
-                    <button onClick={onClose} className="px-6 py-2 border rounded-lg hover:bg-gray-50">Close</button>
-                    <button onClick={() => window.print()} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2">
-                        <Printer className="w-4 h-4" /> Print Payslip
-                    </button>
-                </div>
-
-                <div className="hidden print:flex justify-between mt-24 pt-8 border-t border-gray-300 text-sm text-gray-500">
-                    <div>
-                        <p className="font-bold mb-8">Employee Signature</p>
-                        <div className="w-48 border-b border-gray-400"></div>
-                    </div>
-                    <div>
-                        <p className="font-bold mb-8">Manager Signature</p>
-                        <div className="w-48 border-b border-gray-400"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const RehireModal = ({ employee, onClose, onConfirm }: any) => {
-    const [date, setDate] = useState(formatDateLocal(new Date()));
-    const [reason, setReason] = useState('');
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6 animate-fade-in">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <RefreshCcw className="w-5 h-5 text-green-600" /> Re-hire Employee
-                    </h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span className="block text-xs text-gray-500 uppercase font-bold">Name</span>
-                            <span className="font-medium text-gray-900">{employee.name}</span>
-                        </div>
-                        <div>
-                            <span className="block text-xs text-gray-500 uppercase font-bold">Code</span>
-                            <span className="font-mono text-gray-900">{employee.code}</span>
-                        </div>
-                        <div className="col-span-2">
-                            <span className="block text-xs text-gray-500 uppercase font-bold">Designation</span>
-                            <span className="text-gray-700">{employee.designation}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Re-joining Date</label>
-                        <input type="date" className="w-full p-2 border border-gray-300 rounded-lg" value={date} onChange={e => setDate(e.target.value)} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
-                        <textarea className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Explain re-joining..." value={reason} onChange={e => setReason(e.target.value)}></textarea>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3 mt-8">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
-                    <button onClick={() => onConfirm(employee.id, date, reason)} disabled={!reason.trim()} className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50">Confirm Re-hire</button>
-                </div>
             </div>
         </div>
     );
@@ -1617,6 +1662,12 @@ const App: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState('All Companies');
   const [selectedStatus, setSelectedStatus] = useState('Active');
   const [selectedTeam, setSelectedTeam] = useState('All Teams');
+
+  // Search States
+  const [directorySearch, setDirectorySearch] = useState('');
+  const [exEmployeeSearch, setExEmployeeSearch] = useState('');
+  const [timesheetSearch, setTimesheetSearch] = useState('');
+  const [payrollSearch, setPayrollSearch] = useState('');
 
   // Date State
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -1659,11 +1710,25 @@ const App: React.FC = () => {
   };
 
   const filteredEmployees = employees.filter(e => {
-      if (activeTab === 'directory' && selectedStatus !== 'All') return e.status === selectedStatus;
-      if (activeTab === 'ex-employees') return e.status === 'Inactive';
-      if (activeTab === 'timesheet') return e.active;
-      return true;
-  }).filter(e => {
+      // 1. Filter by Tab Logic & Search
+      if (activeTab === 'directory') {
+          if (selectedStatus !== 'All' && e.status !== selectedStatus) return false;
+          if (directorySearch && !e.name.toLowerCase().includes(directorySearch.toLowerCase()) && !e.code.includes(directorySearch)) return false;
+      }
+      if (activeTab === 'ex-employees') {
+          if (e.status !== 'Inactive') return false;
+          if (exEmployeeSearch && !e.name.toLowerCase().includes(exEmployeeSearch.toLowerCase()) && !e.code.includes(exEmployeeSearch)) return false;
+      }
+      if (activeTab === 'timesheet') {
+          if (!e.active) return false;
+          if (timesheetSearch && !e.name.toLowerCase().includes(timesheetSearch.toLowerCase()) && !e.code.includes(timesheetSearch)) return false;
+      }
+      if (activeTab === 'payroll') {
+           if (!e.active) return false;
+           if (payrollSearch && !e.name.toLowerCase().includes(payrollSearch.toLowerCase()) && !e.code.includes(payrollSearch)) return false;
+      }
+
+      // 2. Filter by Header Dropdowns
       if (selectedCompany !== 'All Companies' && e.company !== selectedCompany) return false;
       if (selectedTeam !== 'All Teams' && e.team !== (selectedTeam === 'Internal' ? 'Internal Team' : selectedTeam === 'External' ? 'External Team' : 'Office Staff')) return false;
       return true;
@@ -1863,7 +1928,17 @@ const App: React.FC = () => {
               <div className="space-y-4">
                   <div className="flex justify-between items-center">
                       <h2 className="text-xl font-bold">Employee Directory</h2>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
+                          <div className="relative">
+                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                             <input 
+                                type="text" 
+                                placeholder="Search..." 
+                                value={directorySearch} 
+                                onChange={e => setDirectorySearch(e.target.value)} 
+                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
+                             />
+                          </div>
                           <button onClick={() => setShowEmpImport(true)} className="px-4 py-2 border rounded hover:bg-gray-50 text-sm flex items-center gap-2"><Upload className="w-4 h-4"/> Import CSV/Excel</button>
                           <button onClick={() => setShowOnboarding(true)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm flex items-center gap-2">
                               <UserPlus className="w-4 h-4" /> Onboard Employee
@@ -1918,6 +1993,16 @@ const App: React.FC = () => {
               <div className="space-y-4">
                   <div className="flex justify-between items-center">
                       <h2 className="text-xl font-bold">Ex-Employees History</h2>
+                      <div className="relative">
+                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                             <input 
+                                type="text" 
+                                placeholder="Search..." 
+                                value={exEmployeeSearch} 
+                                onChange={e => setExEmployeeSearch(e.target.value)} 
+                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
+                             />
+                      </div>
                   </div>
                   <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                       <table className="w-full text-left text-sm">
@@ -1961,6 +2046,18 @@ const App: React.FC = () => {
                           <h2 className="text-lg font-bold w-32 text-center">{currentDate.toLocaleString('default', { month: 'short', year: '2-digit' })}</h2>
                           <button onClick={() => handleMonthChange(1)} className="p-1 hover:bg-gray-100 rounded"><ChevronRight /></button>
                       </div>
+
+                      <div className="relative">
+                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                             <input 
+                                type="text" 
+                                placeholder="Search Employee..." 
+                                value={timesheetSearch} 
+                                onChange={e => setTimesheetSearch(e.target.value)} 
+                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64 bg-gray-50" 
+                             />
+                      </div>
+
                       <div className="flex gap-2">
                           <button onClick={() => setShowHolidays(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 text-purple-600 border-purple-200 bg-purple-50 flex items-center gap-2"><Calendar className="w-4 h-4"/> Manage Holidays</button>
                           <button onClick={() => setShowCopyModal(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 text-orange-600 border-orange-200 bg-orange-50 flex items-center gap-2"><Copy className="w-4 h-4"/> Copy Attendance</button>
@@ -2082,7 +2179,17 @@ const App: React.FC = () => {
               <div className="space-y-4">
                   <div className="flex justify-between items-center">
                       <h2 className="text-xl font-bold text-gray-800">Payroll Register - {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
+                          <div className="relative">
+                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                             <input 
+                                type="text" 
+                                placeholder="Search..." 
+                                value={payrollSearch} 
+                                onChange={e => setPayrollSearch(e.target.value)} 
+                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
+                             />
+                          </div>
                           <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center gap-2" onClick={() => window.print()}>
                               <Printer className="w-4 h-4" /> Print Summary
                           </button>
@@ -2165,26 +2272,10 @@ const App: React.FC = () => {
            <OffboardingWizard employee={showOffboarding} onClose={() => setShowOffboarding(null)} onComplete={() => { setShowOffboarding(null); handleRefresh(); }} />
        )}
        {showImport && (
-           <BulkImportModal 
-             isOpen={showImport} 
-             onClose={() => setShowImport(false)} 
-             onImport={(csv: string) => { 
-               importAttendanceFromCSV(csv); 
-               setShowImport(false); 
-               handleRefresh(); 
-             }} 
-           />
+           <BulkImportModal isOpen={showImport} onClose={() => setShowImport(false)} onImport={(csv) => { importAttendanceFromCSV(csv); setShowImport(false); handleRefresh(); }} />
        )}
        {showEmpImport && (
-           <EmployeeImportModal 
-             isOpen={showEmpImport} 
-             onClose={() => setShowEmpImport(false)} 
-             onImport={(csv: string) => { 
-               importEmployeesFromCSV(csv); 
-               setShowEmpImport(false); 
-               handleRefresh(); 
-             }} 
-           />
+           <EmployeeImportModal isOpen={showEmpImport} onClose={() => setShowEmpImport(false)} onImport={(csv) => { importEmployeesFromCSV(csv); setShowEmpImport(false); handleRefresh(); }} />
        )}
        {showAttendanceModal.isOpen && showAttendanceModal.employee && showAttendanceModal.date && (
            <AttendanceActionModal 
@@ -2227,15 +2318,7 @@ const App: React.FC = () => {
            <LeaveRequestModal employees={employees} onClose={() => setShowLeaveModal(false)} onSave={handleRefresh} />
        )}
        {showRehire && (
-           <RehireModal 
-             employee={showRehire} 
-             onClose={() => setShowRehire(null)} 
-             onConfirm={(id: string, date: string, reason: string) => { 
-               rehireEmployee(id, date, reason); 
-               setShowRehire(null); 
-               handleRefresh(); 
-             }} 
-           />
+           <RehireModal employee={showRehire} onClose={() => setShowRehire(null)} onConfirm={(id, date, reason) => { rehireEmployee(id, date, reason); setShowRehire(null); handleRefresh(); }} />
        )}
        {editEmployee && (
            <EditEmployeeModal employee={editEmployee} companies={companies} onClose={() => setEditEmployee(null)} onSave={handleEditSave} />
