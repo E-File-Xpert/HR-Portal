@@ -5,7 +5,7 @@ import {
   AlertCircle, Paperclip, Eye, Edit, Lock, CheckSquare, 
   Square, Camera, RefreshCcw, Copy, FileText, Download,
   Printer, DollarSign, ChevronLeft, ChevronRight, Search,
-  History, BarChart3, FileDown
+  History, BarChart3, FileDown, Menu
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -24,7 +24,6 @@ import {
   importAttendanceFromCSV, importEmployeesFromCSV
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS } from './constants';
-import SmartCommand from './components/SmartCommand';
 
 // --- Constants for Grid ---
 const LEGEND = {
@@ -169,7 +168,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
             <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
                 <div className="flex justify-center mb-6">
                     <div className="bg-indigo-600 p-3 rounded-lg">
@@ -289,7 +288,7 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, onDelete, employeeName
                             <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 mb-2" accept="image/*,application/pdf" />
                             {(currentAttachment || file) && (
                                 <div className="flex items-center justify-between bg-gray-50 p-2 rounded border">
-                                    <span className="text-xs text-gray-600 flex items-center gap-1">
+                                    <span className="text-xs text-gray-600 flex items-center gap-1 truncate max-w-[150px]">
                                         <Paperclip className="w-3 h-3" /> {file ? `Selected: ${file.name}` : 'Current File Attached'}
                                     </span>
                                     <button type="button" onClick={handlePreview} className="text-xs text-indigo-600 font-bold flex items-center gap-1 hover:underline">
@@ -307,12 +306,12 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, onDelete, employeeName
                 </div>
 
                 <div className="flex justify-between mt-6">
-                     <button onClick={onDelete} className="px-4 py-2 text-red-600 hover:bg-red-50 rounded flex items-center gap-2 border border-red-200 text-sm font-medium">
+                     <button onClick={onDelete} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded flex items-center gap-2 border border-red-200 text-xs md:text-sm font-medium">
                         <Trash2 className="w-4 h-4" /> Clear Status
                     </button>
                     <div className="flex gap-2">
-                        <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded text-sm">Cancel</button>
-                        <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">Save</button>
+                        <button onClick={onClose} className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded text-xs md:text-sm">Cancel</button>
+                        <button onClick={handleSave} className="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs md:text-sm">Save</button>
                     </div>
                 </div>
             </div>
@@ -347,7 +346,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh] max-h-[80vh]">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-lg">Bulk Import Attendance</h3>
                     <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
@@ -399,7 +398,7 @@ const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh] max-h-[80vh]">
                 <div className="flex justify-between items-center mb-4 border-b pb-4">
                     <h3 className="font-bold text-lg text-gray-800">Bulk Import Employees</h3>
                     <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
@@ -1077,16 +1076,16 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                                     <input type="number" className="w-full p-2 border rounded" value={data.salary?.transport} onChange={e => handleSalaryChange('transport', e.target.value)} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Other</label>
-                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.other} onChange={e => handleSalaryChange('other', e.target.value)} />
-                                </div>
-                                <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Air Ticket</label>
                                     <input type="number" className="w-full p-2 border rounded" value={data.salary?.airTicket} onChange={e => handleSalaryChange('airTicket', e.target.value)} />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Leave Payment</label>
                                     <input type="number" className="w-full p-2 border rounded" value={data.salary?.leaveSalary} onChange={e => handleSalaryChange('leaveSalary', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Other</label>
+                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.other} onChange={e => handleSalaryChange('other', e.target.value)} />
                                 </div>
                             </div>
                         </div>
@@ -1224,56 +1223,81 @@ const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
         setDetails(prev => ({ ...prev, [field]: value }));
     };
 
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const base64 = await readFileAsBase64(file);
+            setDetails(prev => ({
+                ...prev,
+                documents: [...(prev.documents || []), { name: file.name, data: base64 }]
+            }));
+        }
+    };
+
+    const removeFile = (index: number) => {
+        setDetails(prev => ({
+            ...prev,
+            documents: prev.documents?.filter((_, i) => i !== index)
+        }));
+    };
+
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col max-h-[90vh]">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <div>
-                        <h3 className="text-lg font-bold text-red-600">Offboarding: {employee.name}</h3>
-                        <p className="text-sm text-gray-500">{employee.designation} - {employee.code}</p>
-                    </div>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
-                </div>
-
-                <div className="overflow-y-auto flex-1 space-y-4 pr-2">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Exit Date</label>
-                            <input type="date" className="w-full p-2 border rounded" value={details.exitDate} onChange={e => handleChange('exitDate', e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Type</label>
-                            <select className="w-full p-2 border rounded" value={details.type} onChange={e => handleChange('type', e.target.value)}>
-                                <option value="Resignation">Resignation</option>
-                                <option value="Termination">Termination</option>
-                                <option value="End of Contract">End of Contract</option>
-                                <option value="Absconding">Absconding</option>
-                            </select>
-                        </div>
-                    </div>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 my-8">
+                <h3 className="font-bold text-lg mb-4 text-red-600">Offboard Employee: {employee.name}</h3>
+                
+                <div className="space-y-4">
+                    <select className="w-full p-2 border rounded" value={details.type} onChange={e => setDetails({ ...details, type: e.target.value as OffboardingDetails['type'] })}>
+                        <option value="Resignation">Resignation</option>
+                        <option value="Termination">Termination</option>
+                        <option value="End of Contract">End of Contract</option>
+                        <option value="Absconding">Absconding</option>
+                    </select>
                     
-                    <div>
-                         <label className="block text-xs font-bold text-gray-500 mb-1">Reason</label>
-                         <textarea className="w-full p-2 border rounded h-20" value={details.reason} onChange={e => handleChange('reason', e.target.value)}></textarea>
+                    <input type="date" className="w-full p-2 border rounded" value={details.exitDate} onChange={e => setDetails({ ...details, exitDate: e.target.value })} />
+                    
+                    <textarea className="w-full p-2 border rounded" placeholder="Reason" value={details.reason} onChange={e => setDetails({ ...details, reason: e.target.value })} />
+
+                    <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded">
+                        <div>
+                            <label className="text-xs">Gratuity</label>
+                            <input type="number" className="w-full p-1 border" value={details.gratuity} onChange={e => setDetails({ ...details, gratuity: parseFloat(e.target.value) })} />
+                        </div>
+                        <div>
+                            <label className="text-xs">Leave Encashment</label>
+                            <input type="number" className="w-full p-1 border" value={details.leaveEncashment} onChange={e => setDetails({ ...details, leaveEncashment: parseFloat(e.target.value) })} />
+                        </div>
+                        <div>
+                            <label className="text-xs">Salary Dues</label>
+                            <input type="number" className="w-full p-1 border" value={details.salaryDues} onChange={e => setDetails({ ...details, salaryDues: parseFloat(e.target.value) })} />
+                        </div>
+                        <div>
+                            <label className="text-xs">Other Dues</label>
+                            <input type="number" className="w-full p-1 border" value={details.otherDues} onChange={e => setDetails({ ...details, otherDues: parseFloat(e.target.value) })} />
+                        </div>
+                        <div>
+                            <label className="text-xs">Deductions</label>
+                            <input type="number" className="w-full p-1 border" value={details.deductions} onChange={e => setDetails({ ...details, deductions: parseFloat(e.target.value) })} />
+                        </div>
                     </div>
 
-                    <div className="bg-gray-50 p-4 rounded border">
-                        <h4 className="font-bold text-sm mb-2">Final Settlement Calculation</h4>
-                        <div className="grid grid-cols-2 gap-4 mb-2">
-                            <div><label className="text-xs">Gratuity</label><input type="number" className="w-full p-1 border rounded" value={details.gratuity} onChange={e => handleChange('gratuity', parseFloat(e.target.value))} /></div>
-                            <div><label className="text-xs">Leave Encashment</label><input type="number" className="w-full p-1 border rounded" value={details.leaveEncashment} onChange={e => handleChange('leaveEncashment', parseFloat(e.target.value))} /></div>
-                            <div><label className="text-xs">Salary Dues</label><input type="number" className="w-full p-1 border rounded" value={details.salaryDues} onChange={e => handleChange('salaryDues', parseFloat(e.target.value))} /></div>
-                            <div><label className="text-xs">Other Dues</label><input type="number" className="w-full p-1 border rounded" value={details.otherDues} onChange={e => handleChange('otherDues', parseFloat(e.target.value))} /></div>
-                            <div><label className="text-xs text-red-600">Deductions</label><input type="number" className="w-full p-1 border rounded border-red-200" value={details.deductions} onChange={e => handleChange('deductions', parseFloat(e.target.value))} /></div>
-                        </div>
-                        <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                            <span className="font-bold">Net Settlement Amount</span>
-                            <span className="text-xl font-bold text-green-600">AED {details.netSettlement.toLocaleString()}</span>
-                        </div>
+                    <div className="border p-3 rounded-lg bg-blue-50">
+                        <label className="text-sm font-bold text-blue-800 flex items-center gap-2 mb-2">
+                            <Upload className="w-4 h-4" /> Upload Documents
+                        </label>
+                        <input type="file" onChange={handleFileChange} className="text-xs w-full mb-2" />
+                        <ul className="space-y-1">
+                            {details.documents?.map((doc: any, idx: number) => (
+                                <li key={idx} className="flex justify-between items-center text-xs bg-white p-1 rounded border">
+                                    <span className="truncate max-w-[200px]">{doc.name}</span>
+                                    <button onClick={() => removeFile(idx)} className="text-red-500 hover:text-red-700"><XCircle className="w-3 h-3" /></button>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <input type="checkbox" checked={details.assetsReturned} onChange={e => handleChange('assetsReturned', e.target.checked)} id="assets" />
+                        <input type="checkbox" checked={details.assetsReturned} onChange={e => setDetails({ ...details, assetsReturned: e.target.checked })} id="assets" />
                         <label htmlFor="assets" className="text-sm font-medium">All company assets returned (Laptop, ID, Uniform, etc.)</label>
                     </div>
 
@@ -1321,8 +1345,8 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
     const monthName = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:p-0 print:static print:bg-white">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="bg-gray-50 p-4 flex justify-between items-center border-b print:hidden">
                     <h3 className="font-bold text-lg">Payslip Preview</h3>
                     <div className="flex gap-2">
@@ -1342,7 +1366,7 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                             <div className="text-xs text-gray-500 uppercase font-bold mb-1">Employee Details</div>
                             <div className="grid grid-cols-2 gap-y-2 text-sm">
                                 <span className="text-gray-600">Name:</span><span className="font-bold">{employee.name}</span>
-                                <span className="text-gray-600">Code:</span><span>{employee.code}</span>
+                                <span className="text-gray-600">Code:</span><span className="font-mono">{employee.code}</span>
                                 <span className="text-gray-600">Designation:</span><span>{employee.designation}</span>
                                 <span className="text-gray-600">Department:</span><span>{employee.department}</span>
                             </div>
@@ -1453,33 +1477,45 @@ const RehireModal = ({ employee, onClose, onConfirm }: any) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg flex items-center gap-2"><RefreshCcw className="w-5 h-5 text-green-600"/> Re-hire Employee</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400" /></button>
+            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6 animate-fade-in">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <RefreshCcw className="w-5 h-5 text-green-600" /> Re-hire Employee
+                    </h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
                 </div>
                 
-                <div className="mb-4 bg-green-50 p-4 rounded border border-green-100">
-                    <p className="text-sm text-green-800">
-                        You are about to reactivate <strong>{employee.name}</strong>. 
-                        Their previous employment history is archived.
-                    </p>
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Name</span>
+                            <span className="font-medium text-gray-900">{employee.name}</span>
+                        </div>
+                        <div>
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Code</span>
+                            <span className="font-mono text-gray-900">{employee.code}</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Designation</span>
+                            <span className="text-gray-700">{employee.designation}</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="space-y-3 mb-6">
+                <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Re-joining Date</label>
-                        <input type="date" className="w-full p-2 border rounded" value={date} onChange={e => setDate(e.target.value)} />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Re-joining Date</label>
+                        <input type="date" className="w-full p-2 border border-gray-300 rounded-lg" value={date} onChange={e => setDate(e.target.value)} />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Reason / Notes</label>
-                        <textarea className="w-full p-2 border rounded h-24" placeholder="Why is this employee re-joining?" value={reason} onChange={e => setReason(e.target.value)}></textarea>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Reason / Notes</label>
+                        <textarea className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Explain re-joining..." value={reason} onChange={e => setReason(e.target.value)}></textarea>
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded font-medium">Cancel</button>
-                    <button onClick={() => onConfirm(employee.id, date, reason)} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold">Confirm Re-hire</button>
+                <div className="flex justify-end gap-3 mt-8">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
+                    <button onClick={() => onConfirm(employee.id, date, reason)} disabled={!reason.trim()} className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50">Confirm Re-hire</button>
                 </div>
             </div>
         </div>
@@ -1542,18 +1578,18 @@ const ReportsView = ({ employees, attendance }: any) => {
 
     return (
         <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-between items-end mb-6">
-                <div className="flex gap-4">
-                    <div>
+            <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                    <div className="w-full md:w-auto">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">From</label>
-                        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="p-2 border rounded-lg bg-white" />
+                        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="p-2 border rounded-lg bg-white w-full" />
                     </div>
-                    <div>
+                    <div className="w-full md:w-auto">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">To</label>
-                        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="p-2 border rounded-lg bg-white" />
+                        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="p-2 border rounded-lg bg-white w-full" />
                     </div>
                 </div>
-                <button onClick={() => window.print()} className="bg-gray-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm hover:bg-gray-800">
+                <button onClick={() => window.print()} className="bg-gray-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm hover:bg-gray-800 w-full md:w-auto justify-center">
                     <Printer className="w-4 h-4" /> Print Report
                 </button>
             </div>
@@ -1582,7 +1618,7 @@ const ReportsView = ({ employees, attendance }: any) => {
                 </div>
             </div>
 
-            <div className="mt-8 mb-4 flex items-center gap-2 max-w-md">
+            <div className="mt-8 mb-4 flex items-center gap-2 max-w-md w-full">
                  <div className="relative flex-1">
                       <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
@@ -1596,7 +1632,7 @@ const ReportsView = ({ employees, attendance }: any) => {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
-                <table className="w-full text-sm text-left">
+                <table className="w-full text-sm text-left min-w-[600px]">
                     <thead className="bg-gray-50 text-gray-600 font-bold text-xs uppercase border-b">
                         <tr>
                             <th className="p-4">Employee</th>
@@ -1668,6 +1704,7 @@ const App: React.FC = () => {
   const [exEmployeeSearch, setExEmployeeSearch] = useState('');
   const [timesheetSearch, setTimesheetSearch] = useState('');
   const [payrollSearch, setPayrollSearch] = useState('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Date State
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -1788,43 +1825,49 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans w-full">
-       <header className="bg-white shadow px-6 py-4 flex justify-between items-center sticky top-0 z-10 w-full">
-         <div className="flex items-center gap-4">
-             <div className="bg-indigo-600 p-2 rounded text-white"><Building2 className="w-6 h-6" /></div>
-             <div>
+       <header className="bg-white shadow px-4 sm:px-6 py-4 flex flex-col md:flex-row justify-between items-center sticky top-0 z-30 w-full gap-4">
+         <div className="flex items-center gap-4 w-full md:w-auto justify-between">
+             <div className="flex items-center gap-4">
+                 <div className="bg-indigo-600 p-2 rounded text-white"><Building2 className="w-6 h-6" /></div>
                  <h1 className="text-xl font-bold text-gray-900">ShiftSync</h1>
              </div>
+             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden p-2 text-gray-600">
+                 <Menu className="w-6 h-6" />
+             </button>
          </div>
-         <div className="flex items-center gap-4">
-            <div className="flex gap-2">
-                <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5" value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}>
+         
+         <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-4 w-full md:w-auto`}>
+            <div className="flex flex-wrap justify-center gap-2 w-full md:w-auto">
+                <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5 flex-1 md:flex-none" value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}>
                     <option>All Companies</option>
                     {companies.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <button onClick={() => setShowManageCompanies(true)} className="p-1.5 text-gray-400 hover:text-gray-600"><Settings className="w-4 h-4" /></button>
                 {activeTab === 'directory' && (
-                    <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5" value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
+                    <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5 flex-1 md:flex-none" value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
                         <option value="Active">Active</option>
                         <option value="Inactive">Inactive</option>
                         <option value="All">All</option>
                     </select>
                 )}
-                <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5" value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)}>
+                <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5 flex-1 md:flex-none" value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)}>
                     <option>All Teams</option>
                     <option value="Internal">Internal</option>
                     <option value="External">External</option>
                     <option value="Office">Office</option>
                 </select>
             </div>
-            <div className="text-right">
-                <div className="text-sm font-bold">{currentUser.name}</div>
-                <div className="text-xs text-gray-500">{currentUser.role}</div>
+            <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                <div className="text-right hidden md:block">
+                    <div className="text-sm font-bold">{currentUser.name}</div>
+                    <div className="text-xs text-gray-500">{currentUser.role}</div>
+                </div>
+                <button onClick={handleLogout} className="text-gray-400 hover:text-red-600"><LogOut className="w-5 h-5" /></button>
             </div>
-            <button onClick={handleLogout} className="text-gray-400 hover:text-red-600"><LogOut className="w-5 h-5" /></button>
          </div>
        </header>
 
-       <div className="bg-white border-b px-6 flex gap-8 overflow-x-auto w-full">
+       <div className="bg-white border-b px-6 flex gap-8 overflow-x-auto w-full no-scrollbar">
            {[
                { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
                { id: 'directory', icon: Users, label: 'Staff Directory' },
@@ -1841,7 +1884,7 @@ const App: React.FC = () => {
            ))}
        </div>
 
-       <main className="p-6 w-full">
+       <main className="p-4 md:p-6 w-full">
           {activeTab === 'dashboard' && (
               <div className="space-y-6">
                   <div className="flex justify-between items-center">
@@ -1926,23 +1969,25 @@ const App: React.FC = () => {
 
           {activeTab === 'directory' && (
               <div className="space-y-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                       <h2 className="text-xl font-bold">Employee Directory</h2>
-                      <div className="flex gap-2 items-center">
-                          <div className="relative">
+                      <div className="flex flex-col md:flex-row gap-2 items-center w-full md:w-auto">
+                          <div className="relative w-full md:w-auto">
                              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                              <input 
                                 type="text" 
                                 placeholder="Search..." 
                                 value={directorySearch} 
                                 onChange={e => setDirectorySearch(e.target.value)} 
-                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
+                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full md:w-64" 
                              />
                           </div>
-                          <button onClick={() => setShowEmpImport(true)} className="px-4 py-2 border rounded hover:bg-gray-50 text-sm flex items-center gap-2"><Upload className="w-4 h-4"/> Import CSV/Excel</button>
-                          <button onClick={() => setShowOnboarding(true)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm flex items-center gap-2">
-                              <UserPlus className="w-4 h-4" /> Onboard Employee
-                          </button>
+                          <div className="flex gap-2 w-full md:w-auto">
+                            <button onClick={() => setShowEmpImport(true)} className="px-4 py-2 border rounded hover:bg-gray-50 text-sm flex items-center gap-2 flex-1 md:flex-none justify-center"><Upload className="w-4 h-4"/> Import</button>
+                            <button onClick={() => setShowOnboarding(true)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm flex items-center gap-2 flex-1 md:flex-none justify-center">
+                                <UserPlus className="w-4 h-4" /> Onboard
+                            </button>
+                          </div>
                       </div>
                   </div>
                   <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
@@ -2005,7 +2050,8 @@ const App: React.FC = () => {
                       </div>
                   </div>
                   <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                      <table className="w-full text-left text-sm">
+                      <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm whitespace-nowrap">
                           <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
                               <tr>
                                   <th className="p-4">Code</th>
@@ -2034,33 +2080,36 @@ const App: React.FC = () => {
                               ))}
                           </tbody>
                       </table>
+                      </div>
                   </div>
               </div>
           )}
 
           {activeTab === 'timesheet' && (
               <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-white p-3 rounded-xl border shadow-sm">
-                      <div className="flex items-center gap-2">
+                  <div className="flex flex-col md:flex-row justify-between items-center bg-white p-3 rounded-xl border shadow-sm gap-4">
+                      <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
                           <button onClick={() => handleMonthChange(-1)} className="p-1 hover:bg-gray-100 rounded"><ChevronLeft /></button>
                           <h2 className="text-lg font-bold w-32 text-center">{currentDate.toLocaleString('default', { month: 'short', year: '2-digit' })}</h2>
                           <button onClick={() => handleMonthChange(1)} className="p-1 hover:bg-gray-100 rounded"><ChevronRight /></button>
                       </div>
 
-                      <div className="relative">
-                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                             <input 
-                                type="text" 
-                                placeholder="Search Employee..." 
-                                value={timesheetSearch} 
-                                onChange={e => setTimesheetSearch(e.target.value)} 
-                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64 bg-gray-50" 
-                             />
-                      </div>
+                      <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
+                          <div className="relative w-full md:w-auto">
+                                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                 <input 
+                                    type="text" 
+                                    placeholder="Search Employee..." 
+                                    value={timesheetSearch} 
+                                    onChange={e => setTimesheetSearch(e.target.value)} 
+                                    className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full md:w-64 bg-gray-50" 
+                                 />
+                          </div>
 
-                      <div className="flex gap-2">
-                          <button onClick={() => setShowHolidays(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 text-purple-600 border-purple-200 bg-purple-50 flex items-center gap-2"><Calendar className="w-4 h-4"/> Manage Holidays</button>
-                          <button onClick={() => setShowCopyModal(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 text-orange-600 border-orange-200 bg-orange-50 flex items-center gap-2"><Copy className="w-4 h-4"/> Copy Attendance</button>
+                          <div className="flex gap-2 w-full md:w-auto">
+                              <button onClick={() => setShowHolidays(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 text-purple-600 border-purple-200 bg-purple-50 flex items-center justify-center gap-2 flex-1 md:flex-none"><Calendar className="w-4 h-4"/> Holidays</button>
+                              <button onClick={() => setShowCopyModal(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 text-orange-600 border-orange-200 bg-orange-50 flex items-center justify-center gap-2 flex-1 md:flex-none"><Copy className="w-4 h-4"/> Copy</button>
+                          </div>
                       </div>
                   </div>
 
@@ -2177,84 +2226,86 @@ const App: React.FC = () => {
 
           {activeTab === 'payroll' && (
               <div className="space-y-4">
-                  <div className="flex justify-between items-center">
+                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                       <h2 className="text-xl font-bold text-gray-800">Payroll Register - {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-                      <div className="flex gap-2 items-center">
-                          <div className="relative">
+                      <div className="flex flex-col md:flex-row gap-2 items-center w-full md:w-auto">
+                          <div className="relative w-full md:w-auto">
                              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                              <input 
                                 type="text" 
                                 placeholder="Search..." 
                                 value={payrollSearch} 
                                 onChange={e => setPayrollSearch(e.target.value)} 
-                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
+                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full md:w-64" 
                              />
                           </div>
-                          <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center gap-2" onClick={() => window.print()}>
+                          <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center justify-center gap-2 w-full md:w-auto" onClick={() => window.print()}>
                               <Printer className="w-4 h-4" /> Print Summary
                           </button>
                       </div>
                   </div>
                   <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                      <table className="w-full text-left text-sm">
-                          <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
-                              <tr>
-                                  <th className="p-4">Code</th>
-                                  <th className="p-4">Name</th>
-                                  <th className="p-4 text-right">Basic</th>
-                                  <th className="p-4 text-right">Housing</th>
-                                  <th className="p-4 text-right">Transport</th>
-                                  <th className="p-4 text-right">Air Ticket</th>
-                                  <th className="p-4 text-right">Leave Payment</th>
-                                  <th className="p-4 text-right">Other</th>
-                                  <th className="p-4 text-right font-bold">Gross</th>
-                                  <th className="p-4 text-right text-red-600">Deductions</th>
-                                  <th className="p-4 text-right text-blue-600">Additions</th>
-                                  <th className="p-4 text-right font-bold text-green-600">Net Salary</th>
-                                  <th className="p-4 text-center print:hidden">Action</th>
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                              {filteredEmployees.filter(e => e.active).map(emp => {
-                                  const empRecs = attendance.filter(r => r.employeeId === emp.id);
-                                  const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
-                                  const totalAdditions = overtimePay + holidayPay + weekOffPay;
-                                  
-                                  const basic = emp.salary?.basic || 0;
-                                  const housing = emp.salary?.housing || 0;
-                                  const transport = emp.salary?.transport || 0;
-                                  const other = emp.salary?.other || 0;
-                                  const airTicket = emp.salary?.airTicket || 0;
-                                  const leaveSalary = emp.salary?.leaveSalary || 0;
-                                  
-                                  const gross = basic + housing + transport + other + airTicket + leaveSalary;
-                                  
-                                  const absentDays = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
-                                  const deduction = (gross / 30) * absentDays;
-                                  const net = gross - deduction + totalAdditions;
+                      <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm whitespace-nowrap">
+                              <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
+                                  <tr>
+                                      <th className="p-4">Code</th>
+                                      <th className="p-4">Name</th>
+                                      <th className="p-4 text-right">Basic</th>
+                                      <th className="p-4 text-right">Housing</th>
+                                      <th className="p-4 text-right">Transport</th>
+                                      <th className="p-4 text-right">Air Ticket</th>
+                                      <th className="p-4 text-right">Leave Payment</th>
+                                      <th className="p-4 text-right">Other</th>
+                                      <th className="p-4 text-right font-bold">Gross</th>
+                                      <th className="p-4 text-right text-red-600">Deductions</th>
+                                      <th className="p-4 text-right text-blue-600">Additions</th>
+                                      <th className="p-4 text-right font-bold text-green-600">Net Salary</th>
+                                      <th className="p-4 text-center print:hidden">Action</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                  {filteredEmployees.filter(e => e.active).map(emp => {
+                                      const empRecs = attendance.filter(r => r.employeeId === emp.id);
+                                      const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
+                                      const totalAdditions = overtimePay + holidayPay + weekOffPay;
+                                      
+                                      const basic = emp.salary?.basic || 0;
+                                      const housing = emp.salary?.housing || 0;
+                                      const transport = emp.salary?.transport || 0;
+                                      const other = emp.salary?.other || 0;
+                                      const airTicket = emp.salary?.airTicket || 0;
+                                      const leaveSalary = emp.salary?.leaveSalary || 0;
+                                      
+                                      const gross = basic + housing + transport + other + airTicket + leaveSalary;
+                                      
+                                      const absentDays = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
+                                      const deduction = (gross / 30) * absentDays;
+                                      const net = gross - deduction + totalAdditions;
 
-                                  return (
-                                      <tr key={emp.id} className="hover:bg-gray-50">
-                                          <td className="p-4 font-mono text-gray-500 text-xs">{emp.code}</td>
-                                          <td className="p-4 font-bold text-gray-800">{emp.name}</td>
-                                          <td className="p-4 text-right text-gray-600">{basic.toLocaleString()}</td>
-                                          <td className="p-4 text-right text-gray-600">{housing.toLocaleString()}</td>
-                                          <td className="p-4 text-right text-gray-600">{transport.toLocaleString()}</td>
-                                          <td className="p-4 text-right text-gray-600">{airTicket.toLocaleString()}</td>
-                                          <td className="p-4 text-right text-gray-600">{leaveSalary.toLocaleString()}</td>
-                                          <td className="p-4 text-right text-gray-600">{other.toLocaleString()}</td>
-                                          <td className="p-4 text-right font-bold">{gross.toLocaleString()}</td>
-                                          <td className="p-4 text-right text-red-600">({deduction.toLocaleString(undefined, {maximumFractionDigits: 0})})</td>
-                                          <td className="p-4 text-right text-blue-600">{totalAdditions > 0 ? totalAdditions.toLocaleString() : '-'}</td>
-                                          <td className="p-4 text-right font-bold text-green-700">{net.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                                          <td className="p-4 text-center print:hidden">
-                                              <button onClick={() => setShowPayslip(emp)} className="text-blue-600 hover:text-blue-800 text-xs font-bold hover:underline">Payslip</button>
-                                          </td>
-                                      </tr>
-                                  );
-                              })}
-                          </tbody>
-                      </table>
+                                      return (
+                                          <tr key={emp.id} className="hover:bg-gray-50">
+                                              <td className="p-4 font-mono text-gray-500 text-xs">{emp.code}</td>
+                                              <td className="p-4 font-bold text-gray-800">{emp.name}</td>
+                                              <td className="p-4 text-right text-gray-600">{basic.toLocaleString()}</td>
+                                              <td className="p-4 text-right text-gray-600">{housing.toLocaleString()}</td>
+                                              <td className="p-4 text-right text-gray-600">{transport.toLocaleString()}</td>
+                                              <td className="p-4 text-right text-gray-600">{airTicket.toLocaleString()}</td>
+                                              <td className="p-4 text-right text-gray-600">{leaveSalary.toLocaleString()}</td>
+                                              <td className="p-4 text-right text-gray-600">{other.toLocaleString()}</td>
+                                              <td className="p-4 text-right font-bold">{gross.toLocaleString()}</td>
+                                              <td className="p-4 text-right text-red-600">({deduction.toLocaleString(undefined, {maximumFractionDigits: 0})})</td>
+                                              <td className="p-4 text-right text-blue-600">{totalAdditions > 0 ? totalAdditions.toLocaleString() : '-'}</td>
+                                              <td className="p-4 text-right font-bold text-green-700">{net.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                                              <td className="p-4 text-center print:hidden">
+                                                  <button onClick={() => setShowPayslip(emp)} className="text-blue-600 hover:text-blue-800 text-xs font-bold hover:underline">Payslip</button>
+                                              </td>
+                                          </tr>
+                                      );
+                                  })}
+                              </tbody>
+                          </table>
+                      </div>
                   </div>
               </div>
           )}
