@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Users, Calendar, Settings, Upload, UserPlus, LogOut, 
   Building2, CheckCircle, XCircle, User, Check, Trash2, 
@@ -151,6 +151,14 @@ const handleFileImport = async (file: File, callback: (text: string) => void) =>
 };
 
 // --- Sub Components ---
+// (LoginScreen, DocumentPreviewModal, AttendanceActionModal, BulkImportModal, EmployeeImportModal, HolidayManagementModal, CopyAttendanceModal, LeaveRequestModal, DeductionModal, DeductionsView, UserManagementModal, ExEmployeeDetailsModal, EditEmployeeModal, AboutView, OnboardingWizard, ManageCompaniesModal, OffboardingWizard, PayslipModal, RehireModal, ReportsView omitted for brevity but assumed to be present in the full file content if I were replacing the whole file. For the update block I will just include the changed parts or the main App component.)
+
+// Due to the file size and structure, I'll provide the updated App component fully to ensure context is maintained, including the necessary imports and state logic.
+// Note: I'm including the previous sub-components by reference in the real code, but here I must output the full file content as per instructions.
+// Wait, the instruction says "Full content of file_2". So I must output everything. 
+
+// RE-INCLUDING ALL SUB-COMPONENTS IS REQUIRED.
+// To avoid hitting token limits if any, I will try to be efficient but complete.
 
 const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
     const [username, setUsername] = useState('');
@@ -1994,6 +2002,49 @@ const App: React.FC = () => {
       handleRefresh();
   };
 
+  // Calculate Payroll Totals using useMemo
+  const payrollTotals = useMemo(() => {
+    if (activeTab !== 'payroll') return { basic: 0, housing: 0, transport: 0, airTicket: 0, leaveSalary: 0, other: 0, gross: 0, deductions: 0, additions: 0, net: 0 };
+
+    return filteredEmployees.filter(e => e.active).reduce((acc, emp) => {
+        const empRecs = attendance.filter(r => r.employeeId === emp.id);
+        const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
+        const totalAdditions = overtimePay + holidayPay + weekOffPay;
+
+        const basic = emp.salary?.basic || 0;
+        const housing = emp.salary?.housing || 0;
+        const transport = emp.salary?.transport || 0;
+        const other = emp.salary?.other || 0;
+        const airTicket = emp.salary?.airTicket || 0;
+        const leaveSalary = emp.salary?.leaveSalary || 0;
+        const gross = basic + housing + transport + other + airTicket + leaveSalary;
+
+        const absentDays = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
+        
+        const empDeds = deductions.filter(d => {
+            const dDate = new Date(d.date);
+            return d.employeeId === emp.id && dDate.getMonth() === currentDate.getMonth() && dDate.getFullYear() === currentDate.getFullYear();
+        });
+        const variableDeductions = empDeds.reduce((sum, curr) => sum + curr.amount, 0);
+
+        const deduction = ((gross / 30) * absentDays) + variableDeductions;
+        const net = gross - deduction + totalAdditions;
+
+        return {
+            basic: acc.basic + basic,
+            housing: acc.housing + housing,
+            transport: acc.transport + transport,
+            airTicket: acc.airTicket + airTicket,
+            leaveSalary: acc.leaveSalary + leaveSalary,
+            other: acc.other + other,
+            gross: acc.gross + gross,
+            deductions: acc.deductions + deduction,
+            additions: acc.additions + totalAdditions,
+            net: acc.net + net
+        };
+    }, { basic: 0, housing: 0, transport: 0, airTicket: 0, leaveSalary: 0, other: 0, gross: 0, deductions: 0, additions: 0, net: 0 });
+  }, [activeTab, filteredEmployees, attendance, deductions, currentDate]);
+
   if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
 
   const daysInMonth = getMonthDays(currentDate);
@@ -2493,6 +2544,21 @@ const App: React.FC = () => {
                                           </tr>
                                       );
                                   })}
+                                  {/* Total Row */}
+                                  <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
+                                      <td className="p-4" colSpan={2}>TOTAL</td>
+                                      <td className="p-4 text-right">{payrollTotals.basic.toLocaleString()}</td>
+                                      <td className="p-4 text-right">{payrollTotals.housing.toLocaleString()}</td>
+                                      <td className="p-4 text-right">{payrollTotals.transport.toLocaleString()}</td>
+                                      <td className="p-4 text-right">{payrollTotals.airTicket.toLocaleString()}</td>
+                                      <td className="p-4 text-right">{payrollTotals.leaveSalary.toLocaleString()}</td>
+                                      <td className="p-4 text-right">{payrollTotals.other.toLocaleString()}</td>
+                                      <td className="p-4 text-right">{payrollTotals.gross.toLocaleString()}</td>
+                                      <td className="p-4 text-right text-red-600">({payrollTotals.deductions.toLocaleString(undefined, {maximumFractionDigits: 0})})</td>
+                                      <td className="p-4 text-right text-blue-600">{payrollTotals.additions.toLocaleString()}</td>
+                                      <td className="p-4 text-right text-green-700">{payrollTotals.net.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                                      <td className="p-4"></td>
+                                  </tr>
                               </tbody>
                           </table>
                       </div>
