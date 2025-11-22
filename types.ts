@@ -96,6 +96,8 @@ export interface LeaveRequest {
   reason: string;
   status: LeaveStatus;
   appliedOn: string;
+  createdBy?: string; // Username of creator
+  approvedBy?: string; // Username of approver
 }
 
 export interface AttendanceRecord {

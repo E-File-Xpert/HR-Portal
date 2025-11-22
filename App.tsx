@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Users, Calendar, Settings, Upload, UserPlus, LogOut, 
@@ -151,14 +152,6 @@ const handleFileImport = async (file: File, callback: (text: string) => void) =>
 };
 
 // --- Sub Components ---
-// (LoginScreen, DocumentPreviewModal, AttendanceActionModal, BulkImportModal, EmployeeImportModal, HolidayManagementModal, CopyAttendanceModal, LeaveRequestModal, DeductionModal, DeductionsView, UserManagementModal, ExEmployeeDetailsModal, EditEmployeeModal, AboutView, OnboardingWizard, ManageCompaniesModal, OffboardingWizard, PayslipModal, RehireModal, ReportsView omitted for brevity but assumed to be present in the full file content if I were replacing the whole file. For the update block I will just include the changed parts or the main App component.)
-
-// Due to the file size and structure, I'll provide the updated App component fully to ensure context is maintained, including the necessary imports and state logic.
-// Note: I'm including the previous sub-components by reference in the real code, but here I must output the full file content as per instructions.
-// Wait, the instruction says "Full content of file_2". So I must output everything. 
-
-// RE-INCLUDING ALL SUB-COMPONENTS IS REQUIRED.
-// To avoid hitting token limits if any, I will try to be efficient but complete.
 
 const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
     const [username, setUsername] = useState('');
@@ -540,7 +533,7 @@ const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
     );
 }
 
-const LeaveRequestModal = ({ employees, onClose, onSave }: any) => {
+const LeaveRequestModal = ({ employees, onClose, onSave, currentUser }: any) => {
     const [req, setReq] = useState<any>({
         type: AttendanceStatus.ANNUAL_LEAVE,
         startDate: formatDateLocal(new Date()),
@@ -550,7 +543,7 @@ const LeaveRequestModal = ({ employees, onClose, onSave }: any) => {
 
     const handleSubmit = () => {
         if (!req.employeeId || !req.reason) return alert("Missing fields");
-        saveLeaveRequest(req);
+        saveLeaveRequest(req, currentUser.name || currentUser.username);
         onSave();
     };
 
@@ -574,6 +567,7 @@ const LeaveRequestModal = ({ employees, onClose, onSave }: any) => {
                         <input type="date" className="p-2 border rounded" value={req.endDate} onChange={e => setReq({ ...req, endDate: e.target.value })} />
                     </div>
                     <textarea className="w-full p-2 border rounded h-24 resize-none" placeholder="Reason" value={req.reason} onChange={e => setReq({ ...req, reason: e.target.value })}></textarea>
+                    <div className="text-xs text-gray-500">Created by: {currentUser.name}</div>
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
                     <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
@@ -889,11 +883,11 @@ const ExEmployeeDetailsModal = ({ employee, onClose }: any) => {
                 <div className="overflow-y-auto flex-1 space-y-6">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="bg-gray-50 p-3 rounded">
-                            <span className="block text-xs font-bold text-gray-500 uppercase">Offboarding Type</span>
+                            <span className="block text-xs font-bold text-gray-500 uppercase Offboarding Type">Offboarding Type</span>
                             <span className="font-medium text-gray-900">{details.type}</span>
                         </div>
                         <div className="bg-gray-50 p-3 rounded">
-                            <span className="block text-xs font-bold text-gray-500 uppercase">Exit Date</span>
+                            <span className="block text-xs font-bold text-gray-500 uppercase Exit Date">Exit Date</span>
                             <span className="font-medium text-gray-900">{details.exitDate}</span>
                         </div>
                     </div>
@@ -1495,10 +1489,14 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
     const leaveSalary = employee.salary?.leaveSalary || 0;
     const gross = basic + housing + transport + other + airTicket + leaveSalary;
     
-    // Separate unpaid leave and absent for clarity
+    // Updated Deduction Logic per request: Annual, Emergency, Unpaid, Absent are ALL unpaid
     const unpaidLeaveDays = records.filter(r => r.status === AttendanceStatus.UNPAID_LEAVE).length;
     const absentDays = records.filter(r => r.status === AttendanceStatus.ABSENT).length;
-    const totalUnpaidDays = unpaidLeaveDays + absentDays;
+    const annualLeaveDays = records.filter(r => r.status === AttendanceStatus.ANNUAL_LEAVE).length;
+    const emergencyLeaveDays = records.filter(r => r.status === AttendanceStatus.EMERGENCY_LEAVE).length;
+
+    // Total unpaid days
+    const totalUnpaidDays = unpaidLeaveDays + absentDays + annualLeaveDays + emergencyLeaveDays;
     
     const deduction = (gross / 30) * totalUnpaidDays;
 
@@ -1566,13 +1564,19 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                                 <tr>
                                     <td className="p-2 border">Basic Salary</td>
                                     <td className="p-2 border text-right">{basic.toLocaleString()}</td>
-                                    <td className="p-2 border">Absent/Unpaid ({totalUnpaidDays} days)</td>
+                                    <td className="p-2 border">Unpaid Days ({totalUnpaidDays} days)</td>
                                     <td className="p-2 border text-right text-red-600">{deduction > 0 ? deduction.toLocaleString(undefined, {maximumFractionDigits: 2}) : '0.00'}</td>
                                 </tr>
                                 <tr>
                                     <td className="p-2 border">Housing Allowance</td>
                                     <td className="p-2 border text-right">{housing.toLocaleString()}</td>
-                                    <td className="p-2 border"></td>
+                                    <td className="p-2 border">
+                                        {(annualLeaveDays > 0 || emergencyLeaveDays > 0) && (
+                                            <span className="text-[10px] text-red-500 italic block">
+                                                * Includes AL/EL as unpaid per policy.
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="p-2 border text-right"></td>
                                 </tr>
                                 <tr>
@@ -1628,6 +1632,13 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                             </tbody>
                         </table>
                     </div>
+
+                    {(annualLeaveDays > 0 || emergencyLeaveDays > 0) && (
+                        <div className="mb-6 p-3 bg-red-50 text-red-700 text-xs rounded border border-red-200">
+                            <strong>Note:</strong> This deduction includes Annual or Emergency Leave days. 
+                            This is not paid leave for this company policy.
+                        </div>
+                    )}
 
                     <div className="flex justify-end">
                         <div className="bg-gray-900 text-white p-4 rounded-lg min-w-[250px]">
@@ -1728,7 +1739,13 @@ const ReportsView = ({ employees, attendance }: any) => {
         const dailyRate = gross / 30;
         
         // Basic Pay for days present/weekoff/holidays/paid leaves
-        const paidDays = empRecs.filter((r: any) => r.status !== AttendanceStatus.ABSENT && r.status !== AttendanceStatus.UNPAID_LEAVE).length;
+        // Updated logic: Absent, UL, AL, EL are unpaid
+        const paidDays = empRecs.filter((r: any) => 
+            r.status !== AttendanceStatus.ABSENT && 
+            r.status !== AttendanceStatus.UNPAID_LEAVE &&
+            r.status !== AttendanceStatus.ANNUAL_LEAVE &&
+            r.status !== AttendanceStatus.EMERGENCY_LEAVE
+        ).length;
         const basicCost = dailyRate * paidDays;
 
         // Additional Earnings
@@ -1750,7 +1767,12 @@ const ReportsView = ({ employees, attendance }: any) => {
             const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = emp.salary || {};
             const gross = basic + housing + transport + other + airTicket + leaveSalary;
             const daily = gross / 30;
-            const paid = empRecs.filter((r: any) => r.status !== AttendanceStatus.ABSENT && r.status !== AttendanceStatus.UNPAID_LEAVE).length;
+            const paid = empRecs.filter((r: any) => 
+                r.status !== AttendanceStatus.ABSENT && 
+                r.status !== AttendanceStatus.UNPAID_LEAVE &&
+                r.status !== AttendanceStatus.ANNUAL_LEAVE &&
+                r.status !== AttendanceStatus.EMERGENCY_LEAVE
+            ).length;
             const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
             const cost = (daily * paid) + overtimePay + holidayPay + weekOffPay;
 
@@ -1992,7 +2014,7 @@ const App: React.FC = () => {
   };
 
   const handleLeaveAction = (id: string, status: LeaveStatus) => {
-      updateLeaveRequestStatus(id, status);
+      updateLeaveRequestStatus(id, status, currentUser?.name || currentUser?.username);
       handleRefresh();
   };
 
@@ -2019,7 +2041,13 @@ const App: React.FC = () => {
         const leaveSalary = emp.salary?.leaveSalary || 0;
         const gross = basic + housing + transport + other + airTicket + leaveSalary;
 
-        const absentDays = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
+        // Updated Deduction Logic for Totals: Includes Absent, UL, AL, EL
+        const absentDays = empRecs.filter(r => 
+            r.status === AttendanceStatus.ABSENT || 
+            r.status === AttendanceStatus.UNPAID_LEAVE ||
+            r.status === AttendanceStatus.ANNUAL_LEAVE ||
+            r.status === AttendanceStatus.EMERGENCY_LEAVE
+        ).length;
         
         const empDeds = deductions.filter(d => {
             const dDate = new Date(d.date);
@@ -2099,9 +2127,9 @@ const App: React.FC = () => {
                { id: 'directory', icon: Users, label: 'Staff Directory' },
                { id: 'ex-employees', icon: History, label: 'Ex-Employees' },
                { id: 'timesheet', icon: Calendar, label: 'Monthly Timesheet' },
+               { id: 'deductions', icon: Wallet, label: 'Deductions' },
                { id: 'leave', icon: FileText, label: 'Leave Management' },
                { id: 'payroll', icon: DollarSign, label: 'Payroll Register' },
-               { id: 'deductions', icon: Wallet, label: 'Deductions' },
                { id: 'reports', icon: BarChart3, label: 'Reports' },
                { id: 'about', icon: AlertCircle, label: 'About' }
            ].map(tab => (
@@ -2443,9 +2471,13 @@ const App: React.FC = () => {
                                           <div className="flex justify-between"><span className="text-gray-500">To:</span> <span className="font-medium">{req.endDate}</span></div>
                                       </div>
                                       <p className="text-sm text-gray-600 italic mb-4">"{req.reason}"</p>
+                                      <div className="border-t pt-2 mt-2 text-xs text-gray-400">
+                                          <div>Requested by: {req.createdBy || 'Unknown'}</div>
+                                          {req.approvedBy && <div>Approved by: {req.approvedBy}</div>}
+                                      </div>
                                   </div>
                                   {req.status === LeaveStatus.PENDING && (
-                                      <div className="flex gap-2 mt-auto">
+                                      <div className="flex gap-2 mt-4">
                                           <button onClick={() => handleLeaveAction(req.id, LeaveStatus.REJECTED)} className="flex-1 py-1.5 border border-red-200 text-red-600 rounded hover:bg-red-50 text-sm">Reject</button>
                                           <button onClick={() => handleLeaveAction(req.id, LeaveStatus.APPROVED)} className="flex-1 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Approve</button>
                                       </div>
@@ -2513,7 +2545,13 @@ const App: React.FC = () => {
                                       
                                       const gross = basic + housing + transport + other + airTicket + leaveSalary;
                                       
-                                      const absentDays = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
+                                      // Updated Logic: Absent, UL, AL, EL are unpaid
+                                      const absentDays = empRecs.filter(r => 
+                                        r.status === AttendanceStatus.ABSENT || 
+                                        r.status === AttendanceStatus.UNPAID_LEAVE ||
+                                        r.status === AttendanceStatus.ANNUAL_LEAVE ||
+                                        r.status === AttendanceStatus.EMERGENCY_LEAVE
+                                      ).length;
                                       
                                       const empDeds = deductions.filter(d => {
                                             const dDate = new Date(d.date);
@@ -2626,7 +2664,7 @@ const App: React.FC = () => {
            <CopyAttendanceModal isOpen={true} onClose={() => setShowCopyModal(false)} onCopy={handleCopyAttendance} />
        )}
        {showLeaveModal && (
-           <LeaveRequestModal employees={employees} onClose={() => setShowLeaveModal(false)} onSave={handleRefresh} />
+           <LeaveRequestModal employees={employees} onClose={() => setShowLeaveModal(false)} onSave={handleRefresh} currentUser={currentUser} />
        )}
        {showRehire && (
            <RehireModal employee={showRehire} onClose={() => setShowRehire(null)} onConfirm={(id, date, reason) => { rehireEmployee(id, date, reason); setShowRehire(null); handleRefresh(); }} />

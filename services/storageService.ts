@@ -1,3 +1,4 @@
+
 import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole, AboutData, DeductionRecord } from "../types";
 import { MOCK_EMPLOYEES, STORAGE_KEYS, DEFAULT_COMPANIES, DEFAULT_ADMIN, CREATOR_USER, DEFAULT_ABOUT_DATA } from "../constants";
 
@@ -473,25 +474,30 @@ export const getLeaveRequests = (): LeaveRequest[] => {
   return data ? JSON.parse(data) : [];
 };
 
-export const saveLeaveRequest = (request: Omit<LeaveRequest, 'id' | 'status' | 'appliedOn'>) => {
+export const saveLeaveRequest = (request: Omit<LeaveRequest, 'id' | 'status' | 'appliedOn'>, createdBy: string) => {
   const requests = getLeaveRequests();
   const newRequest: LeaveRequest = {
     ...request,
     id: Math.random().toString(36).substr(2, 9),
     status: LeaveStatus.PENDING,
-    appliedOn: new Date().toISOString().split('T')[0]
+    appliedOn: new Date().toISOString().split('T')[0],
+    createdBy: createdBy
   };
   requests.push(newRequest);
   localStorage.setItem(STORAGE_KEYS.LEAVE_REQUESTS, JSON.stringify(requests));
   return newRequest;
 };
 
-export const updateLeaveRequestStatus = (id: string, status: LeaveStatus) => {
+export const updateLeaveRequestStatus = (id: string, status: LeaveStatus, approvedBy?: string) => {
   const requests = getLeaveRequests();
   const index = requests.findIndex(r => r.id === id);
   if (index === -1) return;
 
   requests[index].status = status;
+  if (approvedBy && status === LeaveStatus.APPROVED) {
+      requests[index].approvedBy = approvedBy;
+  }
+  
   localStorage.setItem(STORAGE_KEYS.LEAVE_REQUESTS, JSON.stringify(requests));
 
   // If Approved, auto-update the timesheet attendance AND Leave Balance
@@ -503,10 +509,14 @@ export const updateLeaveRequestStatus = (id: string, status: LeaveStatus) => {
     // 1. Update Timesheet
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
        const dateStr = d.toISOString().split('T')[0];
-       logAttendance(req.employeeId, req.type, dateStr);
+       // Log who approved it in the attendance record via 'updatedBy' param logic in logAttendance if needed, 
+       // but here we just pass the status.
+       logAttendance(req.employeeId, req.type, dateStr, 0, undefined, approvedBy || 'System', `Leave Approved by ${approvedBy || 'System'}`);
     }
 
     // 2. Deduct Leave Balance (Only for Annual and Sick Leave)
+    // Note: Even though user said "not paid policy", we still technically might want to track balance decrement if they have a balance concept. 
+    // However, the prompt emphasized financial deduction. We will keep balance deduction for record keeping.
     if (req.type === AttendanceStatus.ANNUAL_LEAVE || req.type === AttendanceStatus.SICK_LEAVE) {
         const employees = getEmployees();
         const empIndex = employees.findIndex(e => e.id === req.employeeId);
