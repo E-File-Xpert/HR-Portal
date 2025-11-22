@@ -2,10 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Employee, ShiftType, StaffType } from "../types";
 
 // Initialize Gemini API
-const apiKey = process.env.API_KEY; 
-// Note: In a real app, handle missing key gracefully. 
-// The prompt instructs to assume it is valid.
-const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key-for-build-check' });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const MODEL_NAME = "gemini-2.5-flash";
 
@@ -13,11 +10,6 @@ export const processNaturalLanguageCommand = async (
   command: string,
   employees: Employee[]
 ): Promise<{ actions: any[], summary: string } | null> => {
-  if (!apiKey) {
-    console.warn("Gemini API Key missing");
-    return null;
-  }
-
   const employeeList = employees.map(e => `${e.name} (${e.company})`).join(", ");
   const today = new Date().toISOString().split('T')[0];
 
@@ -74,8 +66,6 @@ export const processNaturalLanguageCommand = async (
 export const suggestRotationalSchedule = async (
   employees: Employee[]
 ): Promise<string> => {
-  if (!apiKey) return "API Key missing.";
-
   const workers = employees.filter(e => e.type === StaffType.WORKER);
   
   const prompt = `

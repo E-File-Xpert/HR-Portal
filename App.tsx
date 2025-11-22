@@ -1,139 +1,60 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  LayoutDashboard, 
-  Users, 
-  Calendar, 
-  Download, 
-  FileText,
-  Building2,
-  Printer,
-  DollarSign,
-  Search,
-  Briefcase,
-  CheckCircle,
-  XCircle,
-  Plus,
-  UserPlus,
-  CreditCard,
-  User,
-  MapPin,
-  Check,
-  Clock,
-  Settings,
-  Trash2,
-  UserMinus,
-  LogOut,
-  AlertCircle,
-  Paperclip,
-  Upload,
-  Eye,
-  Edit,
-  FileSpreadsheet,
-  UserCheck,
-  BarChart3,
-  FileDown,
-  Ban,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Shield,
-  Lock,
-  CheckSquare,
-  Square,
-  FileIcon,
-  Info,
-  Camera,
-  RefreshCcw,
-  History,
-  ArrowLeft,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  Copy
+  Users, Calendar, Settings, Upload, UserPlus, LogOut, 
+  Building2, CheckCircle, XCircle, User, Check, Trash2, 
+  AlertCircle, Paperclip, Eye, Edit, Lock, CheckSquare, 
+  Square, Camera, RefreshCcw, Copy, FileText, Download,
+  Printer, DollarSign, ChevronLeft, ChevronRight, Search,
+  History, BarChart3, FileDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-
 import { 
-  Employee, 
-  AttendanceRecord, 
-  AttendanceStatus, 
-  StaffType,
-  LeaveRequest,
-  LeaveStatus,
-  SalaryStructure,
-  PublicHoliday,
-  OffboardingDetails,
-  EmployeeDocuments,
-  SystemUser,
-  UserRole,
-  UserPermissions,
-  AboutData
+  Employee, AttendanceRecord, AttendanceStatus, StaffType, 
+  LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, 
+  SystemUser, UserRole, AboutData, SalaryStructure 
 } from './types';
 import { 
-  getEmployees, 
-  saveEmployee,
-  updateEmployee,
-  offboardEmployee,
-  rehireEmployee,
-  getAttendanceRange,
-  logAttendance, 
-  copyDayAttendance,
-  seedMonthlyData,
-  exportToCSV,
-  importAttendanceFromCSV,
-  importEmployeesFromCSV,
-  getLeaveRequests,
-  saveLeaveRequest,
-  updateLeaveRequestStatus,
-  getPublicHolidays,
-  savePublicHoliday,
-  deletePublicHoliday,
-  getCompanies,
-  addCompany,
-  updateCompany,
-  deleteCompany,
-  getSystemUsers,
-  addSystemUser,
-  updateSystemUser,
-  deleteSystemUser,
-  getAboutData,
-  saveAboutData,
-  deleteAttendanceRecord
+  getEmployees, saveEmployee, offboardEmployee, rehireEmployee,
+  getAttendanceRange, logAttendance, deleteAttendanceRecord, copyDayAttendance,
+  getLeaveRequests, saveLeaveRequest, updateLeaveRequestStatus,
+  getPublicHolidays, savePublicHoliday, deletePublicHoliday,
+  getCompanies, addCompany, updateCompany, deleteCompany,
+  getSystemUsers, addSystemUser, updateSystemUser, deleteSystemUser,
+  getAboutData, saveAboutData,
+  importAttendanceFromCSV, importEmployeesFromCSV
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS } from './constants';
+import SmartCommand from './components/SmartCommand';
 
 // --- Constants for Grid ---
-const ATTENDANCE_LEGEND = {
-  [AttendanceStatus.PRESENT]: { label: 'Present', color: 'bg-green-100 text-green-800', code: 'P' },
-  [AttendanceStatus.ABSENT]: { label: 'Absent', color: 'bg-red-100 text-red-800', code: 'A' },
-  [AttendanceStatus.WEEK_OFF]: { label: 'Week Off', color: 'bg-gray-200 text-gray-800', code: 'W' },
-  [AttendanceStatus.PUBLIC_HOLIDAY]: { label: 'Public Holiday', color: 'bg-purple-100 text-purple-800', code: 'PH' },
-  [AttendanceStatus.SICK_LEAVE]: { label: 'Sick Leave', color: 'bg-orange-100 text-orange-800', code: 'SL' },
-  [AttendanceStatus.ANNUAL_LEAVE]: { label: 'Annual Leave', color: 'bg-blue-100 text-blue-800', code: 'AL' },
-  [AttendanceStatus.UNPAID_LEAVE]: { label: 'Unpaid Leave', color: 'bg-red-50 text-red-600', code: 'UL' },
-  [AttendanceStatus.EMERGENCY_LEAVE]: { label: 'Emergency Leave', color: 'bg-pink-100 text-pink-800', code: 'EL' },
+const LEGEND = {
+    [AttendanceStatus.PRESENT]: { label: 'Present', color: 'bg-green-100 text-green-800', code: 'P' },
+    [AttendanceStatus.ABSENT]: { label: 'Absent', color: 'bg-red-100 text-red-800', code: 'A' },
+    [AttendanceStatus.WEEK_OFF]: { label: 'Week Off', color: 'bg-gray-200 text-gray-800', code: 'W' },
+    [AttendanceStatus.PUBLIC_HOLIDAY]: { label: 'Public Holiday', color: 'bg-purple-100 text-purple-800', code: 'PH' },
+    [AttendanceStatus.SICK_LEAVE]: { label: 'Sick Leave', color: 'bg-orange-100 text-orange-800', code: 'SL' },
+    [AttendanceStatus.ANNUAL_LEAVE]: { label: 'Annual Leave', color: 'bg-blue-100 text-blue-800', code: 'AL' },
+    [AttendanceStatus.UNPAID_LEAVE]: { label: 'Unpaid Leave', color: 'bg-red-50 text-red-600', code: 'UL' },
+    [AttendanceStatus.EMERGENCY_LEAVE]: { label: 'Emergency Leave', color: 'bg-pink-100 text-pink-800', code: 'EL' },
 };
 
 // --- Helper Functions ---
 const getMonthDays = (date: Date) => {
-  const y = date.getFullYear();
-  const m = date.getMonth();
-  const days = new Date(y, m + 1, 0).getDate();
-  const result = [];
-  for(let i=1; i<=days; i++) {
-    result.push(new Date(y, m, i));
-  }
-  return result;
-}
+    const y = date.getFullYear();
+    const m = date.getMonth();
+    const days = new Date(y, m + 1, 0).getDate();
+    const result = [];
+    for (let i = 1; i <= days; i++) {
+        result.push(new Date(y, m, i));
+    }
+    return result;
+};
 
-// Helper to format date as YYYY-MM-DD using LOCAL time, avoiding UTC shifts
 const formatDateLocal = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 const calculateAdditionalEarnings = (records: AttendanceRecord[], team: string) => {
@@ -141,58 +62,48 @@ const calculateAdditionalEarnings = (records: AttendanceRecord[], team: string) 
     let holidayPay = 0;
     let weekOffPay = 0;
     let totalOTHours = 0;
-
     const HOURLY_OT_RATE = 5;
     const WEEK_OFF_HOURLY_RATE = 5;
     const HOLIDAY_BONUS_FLAT = 50;
 
-    // Office Staff are NOT eligible for Overtime OR Public Holiday Bonus Work
     const isOtEligible = team !== 'Office Staff';
 
     records.forEach(r => {
-        // Overtime Calculation
         if (isOtEligible && r.overtimeHours > 0) {
             overtimePay += r.overtimeHours * HOURLY_OT_RATE;
             totalOTHours += r.overtimeHours;
         }
-
-        // Public Holiday Work Calculation (If PRESENT on a Public Holiday)
+        // Public Holiday
         if (isOtEligible && PUBLIC_HOLIDAYS.includes(r.date) && r.status === AttendanceStatus.PRESENT) {
             holidayPay += HOLIDAY_BONUS_FLAT;
         }
-
-        // Week Off Work Calculation (If PRESENT on a Sunday - Day 0)
+        // Week Off (Sunday)
         const dateObj = new Date(r.date);
         if (isOtEligible && dateObj.getDay() === 0 && r.status === AttendanceStatus.PRESENT) {
             weekOffPay += (r.hoursWorked || 8) * WEEK_OFF_HOURLY_RATE;
         }
     });
-
     return { overtimePay, holidayPay, weekOffPay, totalOTHours };
 };
 
 const getDateColor = (dateStr: string | undefined, type: 'standard' | 'passport' = 'standard') => {
     if (!dateStr) return 'text-gray-500';
     const today = new Date();
-    today.setHours(0,0,0,0); // Compare dates only
+    today.setHours(0, 0, 0, 0);
     const expiry = new Date(dateStr);
-    
     if (isNaN(expiry.getTime())) return 'text-gray-500';
-
+    
     const diffTime = expiry.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) return 'text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded'; // Expired
-
+    
     if (type === 'passport') {
-        if (diffDays <= 90) return 'text-orange-600 font-bold bg-orange-50 px-2 py-0.5 rounded'; // < 3 months
         if (diffDays <= 180) return 'text-yellow-600 font-bold bg-yellow-50 px-2 py-0.5 rounded'; // < 6 months
     } else {
-        // Standard (Emirates ID, Labour Card)
         if (diffDays <= 30) return 'text-orange-600 font-bold bg-orange-50 px-2 py-0.5 rounded'; // < 1 month
     }
-
-    return 'text-gray-600';
+    return 'text-gray-600 font-mono';
 };
 
 const readFileAsBase64 = (file: File): Promise<string> => {
@@ -204,7 +115,6 @@ const readFileAsBase64 = (file: File): Promise<string> => {
     });
 };
 
-// Helper to read file as ArrayBuffer for Excel
 const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -214,8 +124,7 @@ const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
     });
 };
 
-// Common File Import Handler Logic
-const handleFileImport = async (file: File, callback: (csvText: string) => void) => {
+const handleFileImport = async (file: File, callback: (text: string) => void) => {
     const fileName = file.name.toLowerCase();
     if (fileName.endsWith('.csv')) {
         const reader = new FileReader();
@@ -242,8 +151,6 @@ const handleFileImport = async (file: File, callback: (csvText: string) => void)
 };
 
 // --- Sub Components ---
-// ... (LoginScreen, UserManagementModal, ExEmployeeDetailsModal, AboutView, ManageCompaniesModal, DocumentPreviewModal - remain mostly unchanged)
-// I will include them to ensure the full file is valid.
 
 const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
     const [username, setUsername] = useState('');
@@ -271,62 +178,418 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
                 </div>
                 <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">ShiftSync</h2>
                 <p className="text-center text-gray-500 mb-8">Secure Workforce Management Portal</p>
-                
                 {error && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-center font-medium">{error}</div>}
-                
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                        <input 
-                            type="text" 
-                            value={username}
-                            onChange={e => setUsername(e.target.value)}
-                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                            placeholder="Enter username"
-                        />
+                        <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Enter username" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                        <input 
-                            type="password" 
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                            placeholder="Enter password"
-                        />
+                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Enter password" />
                     </div>
-                    <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg">
-                        Login to Portal
-                    </button>
+                    <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg">Login to Portal</button>
                 </form>
             </div>
         </div>
-    )
+    );
+};
+
+const DocumentPreviewModal = ({ isOpen, onClose, attachment }: any) => {
+    if (!isOpen) return null;
+    const isPdf = attachment.startsWith('data:application/pdf');
+    const isImage = attachment.startsWith('data:image');
+
+    return (
+        <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white w-full max-w-4xl h-[80vh] rounded-xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+                    <h3 className="font-bold">Document Preview</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-800" /></button>
+                </div>
+                <div className="flex-1 bg-gray-200 flex items-center justify-center overflow-auto p-4">
+                    {isImage ? (
+                        <img src={attachment} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded" />
+                    ) : (
+                        <iframe src={attachment} className="w-full h-full bg-white shadow-lg rounded" title="Preview"></iframe>
+                    )}
+                    {!isImage && !isPdf && (
+                        <div className="text-center bg-white p-8 rounded shadow">
+                            <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-500 mb-4">Preview not available for this file type.</p>
+                            <a href={attachment} download="document" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2 mx-auto w-fit">
+                                <Download className="w-4 h-4" /> Download File
+                            </a>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AttendanceActionModal = ({ isOpen, onClose, onSave, onDelete, employeeName, date, currentStatus, currentOt, currentAttachment, currentNote, onPreview, isOtEligible }: any) => {
+    const [status, setStatus] = useState(currentStatus);
+    const [ot, setOt] = useState(currentOt);
+    const [file, setFile] = useState<File | null>(null);
+    const [note, setNote] = useState(currentNote || '');
+
+    useEffect(() => {
+        setStatus(currentStatus);
+        setOt(currentOt);
+        setNote(currentNote || '');
+        setFile(null);
+    }, [isOpen, currentStatus, currentOt, currentNote]);
+
+    const handleSave = async () => {
+        let attachmentStr = currentAttachment;
+        if (file) {
+            attachmentStr = await readFileAsBase64(file);
+        }
+        onSave(status, ot, attachmentStr, note);
+    };
+
+    const handlePreview = async () => {
+        if (file) {
+            const b64 = await readFileAsBase64(file);
+            onPreview(b64);
+        } else if (currentAttachment) {
+            onPreview(currentAttachment);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
+                <h3 className="font-bold text-lg mb-1">Update Attendance</h3>
+                <p className="text-sm text-gray-500 mb-4">{employeeName} - {date}</p>
+                
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full p-2 border rounded">
+                            {Object.entries(LEGEND).map(([key, val]) => (
+                                <option key={key} value={key}>{val.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    {isOtEligible && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Overtime (Hours)</label>
+                            <input type="number" min="0" max="12" value={ot} onChange={(e) => setOt(Number(e.target.value))} className="w-full p-2 border rounded" />
+                        </div>
+                    )}
+
+                    {isOtEligible && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">OT Proof (Document/Image)</label>
+                            <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 mb-2" accept="image/*,application/pdf" />
+                            {(currentAttachment || file) && (
+                                <div className="flex items-center justify-between bg-gray-50 p-2 rounded border">
+                                    <span className="text-xs text-gray-600 flex items-center gap-1">
+                                        <Paperclip className="w-3 h-3" /> {file ? `Selected: ${file.name}` : 'Current File Attached'}
+                                    </span>
+                                    <button type="button" onClick={handlePreview} className="text-xs text-indigo-600 font-bold flex items-center gap-1 hover:underline">
+                                        <Eye className="w-3 h-3" /> Preview
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                        <textarea value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Optional note (e.g. Late arrival)"></textarea>
+                    </div>
+                </div>
+
+                <div className="flex justify-between mt-6">
+                     <button onClick={onDelete} className="px-4 py-2 text-red-600 hover:bg-red-50 rounded flex items-center gap-2 border border-red-200 text-sm font-medium">
+                        <Trash2 className="w-4 h-4" /> Clear Status
+                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded text-sm">Cancel</button>
+                        <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
+    const [csv, setCsv] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const downloadSample = () => {
+        const headers = "EmployeeCode,Date,Status,Overtime";
+        const row1 = "10001,2025/12/01,P,2";
+        const row2 = "10002,2025/12/01,A,0";
+        const content = `${headers}\n${row1}\n${row2}`;
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'attendance_sample_yyyy_mm_dd.csv';
+        a.click();
+    };
+
+    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            handleFileImport(e.target.files[0], (text) => setCsv(text));
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg">Bulk Import Attendance</h3>
+                    <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
+                        <Download className="w-3 h-3" /> Download Sample CSV
+                    </button>
+                </div>
+                
+                <div className="mb-4 p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center text-center">
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600 font-medium mb-1">Upload CSV or Excel File</p>
+                    <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".csv, .xlsx, .xls" className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                </div>
+
+                <p className="text-xs font-bold mb-1">Or paste CSV data here:</p>
+                <textarea value={csv} onChange={e => setCsv(e.target.value)} className="flex-1 w-full p-4 border rounded font-mono text-xs" placeholder="Format: EmployeeCode, Date(YYYY/MM/DD), Status(P/A/etc), OT(number)"></textarea>
+                
+                <div className="flex justify-end gap-2 mt-4">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button onClick={() => onImport(csv)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Import</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
+    const [csv, setCsv] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const downloadSample = () => {
+        const headers = "Code,Name,Designation,Department,Company,JoiningDate,Type,Status,Team,Location,Basic,Housing,Transport,Other,AirTicket,LeaveSalary,EmiratesID,EIDExpiry,Passport,PassExpiry,LabourCard,LCExpiry,VacationDate";
+        const row1 = "EMP001,John Doe,Manager,IT,MyCompany,2025-01-01,Staff,Active,Office Staff,Dubai,5000,2000,1000,500,0,0,784-1234-1234567-1,2026-01-01,N123456,2030-01-01,12345678,2026-05-01,2025-12-15";
+        const content = `${headers}\n${row1}`;
+        const blob = new Blob([content], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'employee_import_sample.csv';
+        a.click();
+    };
+
+    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            handleFileImport(e.target.files[0], (text) => setCsv(text));
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
+                <div className="flex justify-between items-center mb-4 border-b pb-4">
+                    <h3 className="font-bold text-lg text-gray-800">Bulk Import Employees</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
+                </div>
+                
+                <div className="mb-4 p-8 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center text-center hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="w-10 h-10 text-indigo-400 mb-3" />
+                    <p className="text-sm text-gray-700 font-medium mb-1">Click to Upload CSV or Excel</p>
+                    <p className="text-xs text-gray-500">or drag and drop here</p>
+                    <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".csv, .xlsx, .xls" className="hidden" />
+                </div>
+
+                <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold text-gray-700">CSV Content Preview:</p>
+                    <div className="flex items-center gap-2">
+                        <button onClick={downloadSample} className="flex items-center gap-1 text-[10px] text-blue-600 hover:underline">
+                            <Download className="w-3 h-3" /> Sample
+                        </button>
+                        <span className="text-[10px] text-gray-500">Header: Code, Name, Designation...</span>
+                    </div>
+                </div>
+                <textarea value={csv} onChange={e => setCsv(e.target.value)} className="flex-1 w-full p-4 border rounded-lg font-mono text-xs bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="Paste CSV data here..."></textarea>
+                
+                <div className="flex justify-end gap-3 mt-6">
+                    <button onClick={onClose} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
+                    <button onClick={() => onImport(csv)} disabled={!csv} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50 flex items-center gap-2">
+                        <FileDown className="w-4 h-4" /> Import Employees
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const HolidayManagementModal = ({ isOpen, onClose }: any) => {
+    const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
+    const [newDate, setNewDate] = useState('');
+    const [newName, setNewName] = useState('');
+
+    useEffect(() => {
+        if (isOpen) setHolidays(getPublicHolidays());
+    }, [isOpen]);
+
+    const handleAdd = () => {
+        if (newDate && newName) {
+            const updated = savePublicHoliday({ id: Math.random().toString(), date: newDate, name: newName });
+            setHolidays(updated);
+            setNewDate('');
+            setNewName('');
+        }
+    };
+
+    const handleDelete = (id: string) => {
+        if(window.confirm("Remove this holiday?")) {
+            const updated = deletePublicHoliday(id);
+            setHolidays(updated);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Calendar className="w-5 h-5 text-indigo-600"/> Public Holidays</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
+                </div>
+
+                <div className="flex gap-2 mb-6 items-center">
+                    <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="flex-1 border rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-10" />
+                    <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Holiday Name" className="flex-[1.5] border rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-10" />
+                    <button onClick={handleAdd} disabled={!newDate || !newName} className="bg-indigo-600 text-white px-4 h-10 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center"><Check className="w-5 h-5" /></button>
+                </div>
+
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {holidays.length === 0 && <p className="text-sm text-gray-400 text-center py-8 italic">No holidays configured.</p>}
+                    {holidays.map(h => (
+                        <div key={h.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border hover:border-indigo-200 transition-colors group">
+                            <div>
+                                <div className="font-bold text-sm text-gray-800">{h.name}</div>
+                                <div className="text-xs text-gray-500 flex items-center gap-1"><Calendar className="w-3 h-3"/> {h.date}</div>
+                            </div>
+                            <button onClick={() => handleDelete(h.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
+    const [sourceDate, setSourceDate] = useState(formatDateLocal(new Date()));
+    const [targetDate, setTargetDate] = useState(formatDateLocal(new Date(Date.now() + 86400000)));
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Copy className="w-5 h-5 text-orange-500"/> Copy Attendance</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
+                </div>
+                
+                <div className="space-y-4 mb-6">
+                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100 text-sm text-orange-800">
+                        <p className="font-bold mb-1">Warning:</p>
+                        This will copy all attendance status, hours, and notes from the source date to the target date for all employees. Existing records on the target date will be overwritten.
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Copy From</label>
+                            <input type="date" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" value={sourceDate} onChange={e => setSourceDate(e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Copy To</label>
+                            <input type="date" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" value={targetDate} onChange={e => setTargetDate(e.target.value)} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
+                    <button onClick={() => onCopy(sourceDate, targetDate)} className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700">Confirm Copy</button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
-const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
-    // ... (Same implementation as previous)
-    const [users, setUsers] = useState<SystemUser[]>(getSystemUsers());
-    const [isEditing, setIsEditing] = useState(false);
-    const [originalUsername, setOriginalUsername] = useState(''); 
-    const [formData, setFormData] = useState({ username: '', password: '', name: '', role: UserRole.HR });
-    const [permissions, setPermissions] = useState<UserPermissions>({
-        canViewDashboard: true,
-        canManageEmployees: false,
-        canViewDirectory: true,
-        canManageAttendance: false,
-        canViewTimesheet: true,
-        canManageLeaves: false,
-        canViewPayroll: false,
-        canManagePayroll: false,
-        canViewReports: false,
-        canManageUsers: false,
-        canManageSettings: false
+const LeaveRequestModal = ({ employees, onClose, onSave }: any) => {
+    const [req, setReq] = useState<any>({
+        type: AttendanceStatus.ANNUAL_LEAVE,
+        startDate: formatDateLocal(new Date()),
+        endDate: formatDateLocal(new Date()),
+        reason: ''
     });
 
-    const togglePermission = (key: keyof UserPermissions) => {
-        setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
+    const handleSubmit = () => {
+        if (!req.employeeId || !req.reason) return alert("Missing fields");
+        saveLeaveRequest(req);
+        onSave();
     };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full shadow-xl">
+                <h3 className="font-bold mb-4 text-lg">New Leave Request</h3>
+                <div className="space-y-3">
+                    <select className="w-full p-2 border rounded" onChange={e => setReq({ ...req, employeeId: e.target.value })}>
+                        <option value="">Select Employee</option>
+                        {employees.map((e: Employee) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                    <select className="w-full p-2 border rounded" value={req.type} onChange={e => setReq({ ...req, type: e.target.value })}>
+                        <option value={AttendanceStatus.ANNUAL_LEAVE}>Annual Leave</option>
+                        <option value={AttendanceStatus.SICK_LEAVE}>Sick Leave</option>
+                        <option value={AttendanceStatus.UNPAID_LEAVE}>Unpaid Leave</option>
+                        <option value={AttendanceStatus.EMERGENCY_LEAVE}>Emergency Leave</option>
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                        <input type="date" className="p-2 border rounded" value={req.startDate} onChange={e => setReq({ ...req, startDate: e.target.value })} />
+                        <input type="date" className="p-2 border rounded" value={req.endDate} onChange={e => setReq({ ...req, endDate: e.target.value })} />
+                    </div>
+                    <textarea className="w-full p-2 border rounded h-24 resize-none" placeholder="Reason" value={req.reason} onChange={e => setReq({ ...req, reason: e.target.value })}></textarea>
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+                    <button onClick={handleSubmit} className="px-4 py-2 bg-indigo-600 text-white rounded">Submit</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const UserManagementModal = ({ isOpen, onClose }: any) => {
+    const [users, setUsers] = useState(getSystemUsers());
+    const [isEditing, setIsEditing] = useState(false);
+    const [originalUsername, setOriginalUsername] = useState('');
+    const [formData, setFormData] = useState({ username: '', password: '', name: '', role: UserRole.HR });
+    const [permissions, setPermissions] = useState({
+        canViewDashboard: true, canManageEmployees: false, canViewDirectory: true,
+        canManageAttendance: false, canViewTimesheet: true, canManageLeaves: false,
+        canViewPayroll: false, canManagePayroll: false, canViewReports: false,
+        canManageUsers: false, canManageSettings: false
+    });
+
+    const togglePermission = (key: string) => setPermissions(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
 
     const handleSave = () => {
         if (!formData.username || !formData.password || !formData.name) return;
@@ -340,18 +603,11 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
             }
             setUsers(updatedList);
             resetForm();
-        } catch (e: any) {
-            alert(e.message);
-        }
+        } catch (e: any) { alert(e.message); }
     };
 
     const handleEdit = (user: SystemUser) => {
-        setFormData({
-            username: user.username,
-            password: user.password,
-            name: user.name,
-            role: user.role
-        });
+        setFormData({ username: user.username, password: user.password, name: user.name, role: user.role });
         setPermissions(user.permissions);
         setOriginalUsername(user.username);
         setIsEditing(true);
@@ -361,19 +617,6 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
         setFormData({ username: '', password: '', name: '', role: UserRole.HR });
         setIsEditing(false);
         setOriginalUsername('');
-        setPermissions({
-            canViewDashboard: true,
-            canManageEmployees: false,
-            canViewDirectory: true,
-            canManageAttendance: false,
-            canViewTimesheet: true,
-            canManageLeaves: false,
-            canViewPayroll: false,
-            canManagePayroll: false,
-            canViewReports: false,
-            canManageUsers: false,
-            canManageSettings: false
-        });
     };
 
     const handleDelete = (username: string) => {
@@ -382,75 +625,53 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                 const updated = deleteSystemUser(username);
                 setUsers(updated);
             }
-        } catch (e: any) {
-            alert(e.message);
-        }
+        } catch (e: any) { alert(e.message); }
     };
 
     if (!isOpen) return null;
 
-    const permissionLabels: Record<keyof UserPermissions, string> = {
-        canViewDashboard: "View Dashboard",
-        canViewDirectory: "View Staff Directory",
-        canManageEmployees: "Manage Employees (Add/Edit/Offboard)",
-        canViewTimesheet: "View Monthly Timesheet",
-        canManageAttendance: "Edit Attendance & OT",
-        canManageLeaves: "Manage Leave Requests",
-        canViewPayroll: "View Payroll Register",
-        canManagePayroll: "Manage Payroll (Print/Slip)",
-        canViewReports: "View Custom Reports",
-        canManageUsers: "Manage System Users",
-        canManageSettings: "Manage Settings (Companies/Holidays)"
-    };
-
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:hidden">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl p-6 flex flex-col max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-bold">System User Management</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500"/></button>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
                 </div>
+                
                 <div className={`bg-gray-50 p-4 rounded-lg mb-6 border ${isEditing ? 'border-blue-300 ring-1 ring-blue-200' : 'border-gray-200'}`}>
-                     <div className="flex justify-between items-center mb-4">
-                         <h4 className="font-bold text-sm">{isEditing ? 'Edit User' : 'Create New User'}</h4>
-                         {isEditing && <button onClick={resetForm} className="text-xs text-gray-500 underline">Cancel Edit</button>}
-                     </div>
-                     <div className="grid grid-cols-2 gap-4 mb-4">
-                         <input placeholder="Username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="p-2 border rounded text-sm" />
-                         <input placeholder="Password" type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="p-2 border rounded text-sm" />
-                         <input placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="p-2 border rounded text-sm" />
-                         <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="p-2 border rounded text-sm">
-                             {Object.values(UserRole).filter(r => r !== UserRole.CREATOR).map(r => <option key={r} value={r}>{r}</option>)}
-                         </select>
-                     </div>
-                     <div className="mb-4">
-                         <p className="text-xs font-bold text-gray-500 uppercase mb-2">Access Permissions</p>
-                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                             {Object.entries(permissionLabels).map(([key, label]) => (
-                                 <div key={key} onClick={() => togglePermission(key as keyof UserPermissions)} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1 rounded select-none">
-                                     {permissions[key as keyof UserPermissions] ? 
-                                        <CheckSquare className="w-4 h-4 text-indigo-600" /> : 
-                                        <Square className="w-4 h-4 text-gray-400" />
-                                     }
-                                     <span className="text-xs text-gray-700">{label}</span>
-                                 </div>
-                             ))}
-                         </div>
-                     </div>
-                     <button onClick={handleSave} className={`w-full text-white py-2 rounded text-sm font-medium transition-colors ${isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-                         {isEditing ? 'Update User' : 'Create System User'}
-                     </button>
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="font-bold text-sm">{isEditing ? 'Edit User' : 'Create New User'}</h4>
+                        {isEditing && <button onClick={resetForm} className="text-xs text-gray-500 underline">Cancel Edit</button>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <input placeholder="Username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="p-2 border rounded text-sm" />
+                        <input placeholder="Password" type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="p-2 border rounded text-sm" />
+                        <input placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="p-2 border rounded text-sm" />
+                        <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="p-2 border rounded text-sm">
+                            {Object.values(UserRole).filter(r => r !== UserRole.CREATOR).map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                    
+                    <div className="mb-4">
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-2">Access Permissions</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {Object.keys(permissions).map((key) => (
+                                <div key={key} onClick={() => togglePermission(key)} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1 rounded select-none">
+                                    {permissions[key as keyof typeof permissions] ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-gray-400" />}
+                                    <span className="text-xs text-gray-700">{key.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <button onClick={handleSave} className={`w-full text-white py-2 rounded text-sm font-medium transition-colors ${isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+                        {isEditing ? 'Update User' : 'Create System User'}
+                    </button>
                 </div>
+
                 <div className="overflow-y-auto flex-1">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-100 font-bold sticky top-0">
-                            <tr>
-                                <th className="p-2">Username</th>
-                                <th className="p-2">Name</th>
-                                <th className="p-2">Role</th>
-                                <th className="p-2">Permissions</th>
-                                <th className="p-2 text-right">Action</th>
-                            </tr>
+                            <tr><th className="p-2">Username</th><th className="p-2">Name</th><th className="p-2">Role</th><th className="p-2 text-right">Action</th></tr>
                         </thead>
                         <tbody>
                             {users.filter(u => u.role !== UserRole.CREATOR).map(u => (
@@ -458,14 +679,9 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                                     <td className="p-2 font-mono">{u.username}</td>
                                     <td className="p-2">{u.name}</td>
                                     <td className="p-2"><span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{u.role}</span></td>
-                                    <td className="p-2 text-xs text-gray-500 max-w-xs truncate" title={JSON.stringify(u.permissions)}>
-                                        {Object.values(u.permissions || {}).filter(Boolean).length} active permissions
-                                    </td>
                                     <td className="p-2 text-right flex justify-end gap-2">
-                                        <button onClick={() => handleEdit(u)} className="text-blue-500 hover:bg-blue-50 p-1 rounded" title="Edit"><Edit className="w-4 h-4"/></button>
-                                        {u.username !== 'admin' && (
-                                            <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded" title="Delete"><Trash2 className="w-4 h-4"/></button>
-                                        )}
+                                        <button onClick={() => handleEdit(u)} className="text-blue-500 hover:bg-blue-50 p-1 rounded"><Edit className="w-4 h-4" /></button>
+                                        {u.username !== 'admin' && <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4" /></button>}
                                     </td>
                                 </tr>
                             ))}
@@ -474,24 +690,23 @@ const UserManagementModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: ()
                 </div>
             </div>
         </div>
-    )
-}
+    );
+};
 
-const ExEmployeeDetailsModal = ({ employee, onClose }: { employee: Employee, onClose: () => void }) => {
-    const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+const ExEmployeeDetailsModal = ({ employee, onClose }: any) => {
+    const [previewDoc, setPreviewDoc] = useState(null);
     const details = employee?.offboardingDetails;
-
     if (!employee || !details) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:hidden">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col max-h-[85vh]">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <div>
                         <h3 className="text-lg font-bold text-gray-900">{employee.name}</h3>
                         <p className="text-sm text-gray-500">{employee.designation} - {employee.code}</p>
                     </div>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700"/></button>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
                 </div>
                 
                 <div className="overflow-y-auto flex-1 space-y-6">
@@ -505,58 +720,122 @@ const ExEmployeeDetailsModal = ({ employee, onClose }: { employee: Employee, onC
                             <span className="font-medium text-gray-900">{details.exitDate}</span>
                         </div>
                     </div>
-                    {/* ... other details ... */}
-                     <div>
+
+                    <div>
                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Reason & Notes</h4>
                         <div className="bg-gray-50 p-4 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap">
                             {details.reason}
                             {details.notes && <div className="mt-2 pt-2 border-t border-gray-200 text-gray-500 text-xs">{details.notes}</div>}
                         </div>
                     </div>
-                     <div>
-                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Final Settlement</h4>
-                         <div className="grid grid-cols-3 gap-2 text-sm">
-                             <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Gratuity</span>AED {details.gratuity}</div>
-                             <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Leave Encash</span>AED {details.leaveEncashment}</div>
-                             <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Salary Dues</span>AED {details.salaryDues}</div>
-                             <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Other Dues</span>AED {details.otherDues}</div>
-                             <div className="p-2 border rounded"><span className="block text-xs text-red-500">Deductions</span>AED {details.deductions}</div>
-                             <div className="p-2 border rounded bg-green-50"><span className="block text-xs text-green-700 font-bold">Net Pay</span>AED {(details.gratuity + details.leaveEncashment + details.salaryDues + details.otherDues - details.deductions).toLocaleString()}</div>
-                         </div>
+
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Final Settlement</h4>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                            <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Gratuity</span> AED {details.gratuity}</div>
+                            <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Leave Encash</span> AED {details.leaveEncashment}</div>
+                            <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Salary Dues</span> AED {details.salaryDues}</div>
+                            <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Other Dues</span> AED {details.otherDues}</div>
+                            <div className="p-2 border rounded"><span className="block text-xs text-red-500">Deductions</span> AED {details.deductions}</div>
+                            <div className="p-2 border rounded bg-green-50"><span className="block text-xs text-green-700 font-bold">Net Pay</span> AED {details.netSettlement}</div>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 text-sm">
+                            {details.assetsReturned ? <CheckCircle className="w-4 h-4 text-green-600"/> : <AlertCircle className="w-4 h-4 text-red-600"/>}
+                            <span>Assets Returned: <strong>{details.assetsReturned ? 'Yes' : 'No'}</strong></span>
+                        </div>
                     </div>
+
                     <div>
                         <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Uploaded Documents</h4>
                         {details.documents && details.documents.length > 0 ? (
                             <ul className="space-y-2">
-                                {details.documents.map((doc, idx) => (
+                                {details.documents.map((doc: any, idx: number) => (
                                     <li key={idx} className="flex justify-between items-center p-2 border rounded hover:bg-gray-50">
                                         <span className="text-sm text-gray-700 truncate max-w-[300px] flex items-center gap-2">
-                                            <FileText className="w-4 h-4 text-blue-500"/> {doc.name}
+                                            <FileText className="w-4 h-4 text-blue-500" /> {doc.name}
                                         </span>
-                                        <button onClick={() => setPreviewDoc(doc.data)} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium hover:bg-blue-100">
-                                            View
-                                        </button>
+                                        <button onClick={() => setPreviewDoc(doc.data)} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium hover:bg-blue-100">View</button>
                                     </li>
                                 ))}
                             </ul>
-                        ) : (
-                            <p className="text-sm text-gray-400 italic">No documents attached.</p>
-                        )}
+                        ) : <p className="text-sm text-gray-400 italic">No documents attached.</p>}
                     </div>
                 </div>
             </div>
             {previewDoc && <DocumentPreviewModal isOpen={true} onClose={() => setPreviewDoc(null)} attachment={previewDoc} />}
         </div>
     );
-}
+};
+
+const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
+    const [formData, setFormData] = useState({ ...employee });
+    
+    const handleChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
+    
+    const handleSalaryChange = (field: string, value: number) => 
+        setFormData((prev: any) => ({ ...prev, salary: { ...prev.salary, [field]: value } }));
+    
+    const handleDocChange = (field: string, value: string) => 
+        setFormData((prev: any) => ({ ...prev, documents: { ...prev.documents, [field]: value } }));
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl p-6 my-8">
+                <div className="flex justify-between mb-6">
+                    <h3 className="font-bold text-lg">Edit Employee: {employee.name}</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <input className="p-2 border rounded" placeholder="Name" value={formData.name} onChange={e => handleChange('name', e.target.value)} />
+                    <input className="p-2 border rounded" placeholder="Designation" value={formData.designation} onChange={e => handleChange('designation', e.target.value)} />
+                    <input className="p-2 border rounded" placeholder="Department" value={formData.department} onChange={e => handleChange('department', e.target.value)} />
+                    <select className="p-2 border rounded" value={formData.company} onChange={e => handleChange('company', e.target.value)}>
+                        {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select className="p-2 border rounded" value={formData.team} onChange={e => handleChange('team', e.target.value)}>
+                        <option value="Internal Team">Internal Team</option>
+                        <option value="External Team">External Team</option>
+                        <option value="Office Staff">Office Staff</option>
+                    </select>
+                    <input className="p-2 border rounded" placeholder="Work Location" value={formData.workLocation} onChange={e => handleChange('workLocation', e.target.value)} />
+                </div>
+
+                <h4 className="font-bold text-sm mb-2 mt-4">Salary Structure</h4>
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div><label className="text-xs font-bold text-gray-500">Basic</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.basic} onChange={e => handleSalaryChange('basic', parseFloat(e.target.value) || 0)} /></div>
+                    <div><label className="text-xs font-bold text-gray-500">Housing</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.housing} onChange={e => handleSalaryChange('housing', parseFloat(e.target.value) || 0)} /></div>
+                    <div><label className="text-xs font-bold text-gray-500">Transport</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.transport} onChange={e => handleSalaryChange('transport', parseFloat(e.target.value) || 0)} /></div>
+                    <div><label className="text-xs font-bold text-gray-500">Air Ticket</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.airTicket} onChange={e => handleSalaryChange('airTicket', parseFloat(e.target.value) || 0)} /></div>
+                    <div><label className="text-xs font-bold text-gray-500">Leave Payment</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.leaveSalary} onChange={e => handleSalaryChange('leaveSalary', parseFloat(e.target.value) || 0)} /></div>
+                    <div><label className="text-xs font-bold text-gray-500">Other</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.other} onChange={e => handleSalaryChange('other', parseFloat(e.target.value) || 0)} /></div>
+                </div>
+
+                <h4 className="font-bold text-sm mb-2 mt-4">Documents & Dates</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    <div><label className="text-xs">Emirates ID</label><input className="w-full p-2 border rounded" value={formData.documents?.emiratesId || ''} onChange={e => handleDocChange('emiratesId', e.target.value)} /></div>
+                    <div><label className="text-xs">EID Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.emiratesIdExpiry || ''} onChange={e => handleDocChange('emiratesIdExpiry', e.target.value)} /></div>
+                    <div><label className="text-xs">Passport No</label><input className="w-full p-2 border rounded" value={formData.documents?.passportNumber || ''} onChange={e => handleDocChange('passportNumber', e.target.value)} /></div>
+                    <div><label className="text-xs">Passport Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.passportExpiry || ''} onChange={e => handleDocChange('passportExpiry', e.target.value)} /></div>
+                    <div><label className="text-xs">Labour Card No</label><input className="w-full p-2 border rounded" value={formData.documents?.labourCardNumber || ''} onChange={e => handleDocChange('labourCardNumber', e.target.value)} /></div>
+                    <div><label className="text-xs">LC Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.labourCardExpiry || ''} onChange={e => handleDocChange('labourCardExpiry', e.target.value)} /></div>
+                    <div><label className="text-xs">Vacation Date</label><input type="date" className="w-full p-2 border rounded" value={formData.vacationScheduledDate || ''} onChange={e => handleChange('vacationScheduledDate', e.target.value)} /></div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-4">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button onClick={() => onSave(formData)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
-    // ... (Same as before)
-    const [data, setData] = useState<AboutData>(getAboutData());
+    const [data, setData] = useState(getAboutData());
     const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState<AboutData>(data);
+    const [formData, setFormData] = useState(data);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
+    
     const isCreator = currentUser.role === UserRole.CREATOR;
 
     const handleSave = () => {
@@ -577,11 +856,7 @@ const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                 <div className="h-32 bg-gradient-to-r from-indigo-600 to-blue-500 relative">
                     {isCreator && !isEditing && (
-                        <button 
-                            onClick={() => { setFormData(data); setIsEditing(true); }} 
-                            className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/30 backdrop-blur-sm transition-colors"
-                            title="Edit Page"
-                        >
+                        <button onClick={() => { setFormData(data); setIsEditing(true); }} className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/30 backdrop-blur-sm transition-colors" title="Edit Page">
                             <Edit className="w-5 h-5" />
                         </button>
                     )}
@@ -608,15 +883,15 @@ const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
                     {isEditing ? (
                         <div className="space-y-4 max-w-lg mx-auto">
                             <div className="text-center">
-                                <input className="text-3xl font-bold text-center w-full border-b pb-1" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                                <input className="text-indigo-600 font-medium text-center w-full mt-2 border-b pb-1" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                                <input className="text-3xl font-bold text-center w-full border-b pb-1" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                <input className="text-indigo-600 font-medium text-center w-full mt-2 border-b pb-1" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                             </div>
                             <div className="bg-gray-50 p-4 rounded-lg border">
-                                <textarea className="w-full bg-transparent border-b mt-1 min-h-[100px]" value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
+                                <textarea className="w-full bg-transparent border-b mt-1 min-h-[100px]" value={formData.bio} onChange={e => setFormData({ ...formData, bio: e.target.value })} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs font-bold">Email</label><input className="w-full border p-2 rounded" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
-                                <div><label className="text-xs font-bold">Contact</label><input className="w-full border p-2 rounded" value={formData.contactInfo} onChange={e => setFormData({...formData, contactInfo: e.target.value})} /></div>
+                                <input className="w-full border p-2 rounded" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                <input className="w-full border p-2 rounded" value={formData.contactInfo} onChange={e => setFormData({ ...formData, contactInfo: e.target.value })} />
                             </div>
                             <div className="flex justify-center gap-4 mt-6">
                                 <button onClick={() => setIsEditing(false)} className="px-6 py-2 rounded-full border">Cancel</button>
@@ -634,9 +909,12 @@ const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
                             </div>
                         </div>
                     )}
+
                     {!isCreator && !isEditing && (
                         <div className="mt-12 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-                            <p className="text-sm text-yellow-800 flex items-center justify-center gap-2"><Lock className="w-4 h-4" /> The About page is managed by the creator and cannot be edited or removed by users.</p>
+                            <p className="text-sm text-yellow-800 flex items-center justify-center gap-2">
+                                <Lock className="w-4 h-4" /> The About page is managed by the creator and cannot be edited or removed by users.
+                            </p>
                         </div>
                     )}
                 </div>
@@ -645,352 +923,20 @@ const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
     );
 };
 
-// ... (ManageCompaniesModal - same)
-const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any) => {
-    const [newName, setNewName] = useState('');
-    const [editingName, setEditingName] = useState<string | null>(null);
-    const [editValue, setEditValue] = useState('');
-
-    const handleAdd = () => {
-        if (!newName.trim()) return;
-        const updated = addCompany(newName.trim());
-        onDataChange(updated);
-        setNewName('');
-    }
-
-    const handleDelete = (name: string) => {
-        if (window.confirm(`Delete "${name}"?`)) {
-            const updated = deleteCompany(name);
-            onDataChange(updated);
-        }
-    }
-
-    const startEdit = (name: string) => {
-        setEditingName(name);
-        setEditValue(name);
-    }
-
-    const saveEdit = () => {
-        if (editingName && editValue.trim()) {
-            const updated = updateCompany(editingName, editValue.trim());
-            onDataChange(updated);
-            setEditingName(null);
-        }
-    }
-
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 flex flex-col max-h-[80vh]">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold">Manage Companies</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500"/></button>
-                </div>
-                <div className="flex gap-2 mb-6">
-                    <input value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 p-2 border rounded-lg" placeholder="Enter new company name" />
-                    <button onClick={handleAdd} disabled={!newName.trim()} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Add</button>
-                </div>
-                <div className="flex-1 overflow-y-auto pr-2">
-                    <ul className="space-y-2">
-                        {companies.map((c: string) => (
-                            <li key={c} className="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 group">
-                                {editingName === c ? (
-                                    <div className="flex-1 flex gap-2 items-center">
-                                        <input value={editValue} onChange={e => setEditValue(e.target.value)} className="flex-1 p-2 border rounded-lg text-sm" autoFocus />
-                                        <button onClick={saveEdit} className="text-green-600 p-1.5"><Check className="w-4 h-4"/></button>
-                                        <button onClick={() => setEditingName(null)} className="text-gray-500 p-1.5"><XCircle className="w-4 h-4"/></button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span className="flex-1 text-sm font-medium truncate" title={c}>{c}</span>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => startEdit(c)} className="text-blue-600 p-1.5"><Edit className="w-4 h-4"/></button>
-                                            <button onClick={() => handleDelete(c)} className="text-red-600 p-1.5"><Trash2 className="w-4 h-4"/></button>
-                                        </div>
-                                    </>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-// ... (DocumentPreviewModal - same)
-const DocumentPreviewModal = ({ isOpen, onClose, attachment }: { isOpen: boolean, onClose: () => void, attachment: string }) => {
-  if (!isOpen) return null;
-  const isPdf = attachment.startsWith('data:application/pdf');
-  const isImage = attachment.startsWith('data:image');
-  return (
-    <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white w-full max-w-4xl h-[80vh] rounded-xl overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-4 border-b bg-gray-50">
-          <h3 className="font-bold">Document Preview</h3>
-          <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-800"/></button>
-        </div>
-        <div className="flex-1 bg-gray-200 flex items-center justify-center overflow-auto p-4">
-          {isImage ? (
-             <img src={attachment} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg rounded" />
-          ) : (
-             <iframe src={attachment} className="w-full h-full bg-white shadow-lg rounded" title="Preview" />
-          )}
-          {!isImage && !isPdf && (
-              <div className="text-center bg-white p-8 rounded shadow">
-                  <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-4">Preview not available.</p>
-                  <a href={attachment} download="document" className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 mx-auto w-fit"><Download className="w-4 h-4"/> Download File</a>
-              </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const AttendanceActionModal = ({ isOpen, onClose, onSave, onDelete, employeeName, date, currentStatus, currentOt, currentAttachment, currentNote, onPreview, isOtEligible }: any) => {
-    const [status, setStatus] = useState(currentStatus);
-    const [ot, setOt] = useState(currentOt);
-    const [file, setFile] = useState<File | null>(null);
-    const [note, setNote] = useState(currentNote || '');
-
-    useEffect(() => {
-        setStatus(currentStatus);
-        setOt(currentOt);
-        setNote(currentNote || '');
-        setFile(null);
-    }, [isOpen, currentStatus, currentOt, currentNote]);
-
-    const handleSave = async () => {
-        let attachmentStr = currentAttachment;
-        if (file) {
-            attachmentStr = await readFileAsBase64(file);
-        }
-        onSave(status, ot, attachmentStr, note);
-    };
-
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
-                <h3 className="font-bold text-lg mb-1">Update Attendance</h3>
-                <p className="text-sm text-gray-500 mb-4">{employeeName} - {formatDateLocal(date)}</p>
-
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full p-2 border rounded">
-                            {Object.entries(ATTENDANCE_LEGEND).map(([key, val]) => (
-                                <option key={key} value={key}>{val.label}</option>
-                            ))}
-                        </select>
-                    </div>
-                    {isOtEligible && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Overtime (Hours)</label>
-                            <input type="number" min="0" max="12" value={ot} onChange={(e) => setOt(Number(e.target.value))} className="w-full p-2 border rounded"/>
-                        </div>
-                    )}
-                    {isOtEligible && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">OT Proof</label>
-                            <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500 mb-2"/>
-                            {currentAttachment && (
-                                <div className="flex items-center justify-between bg-gray-50 p-2 rounded border">
-                                    <span className="text-xs text-gray-600 flex items-center gap-1"><Paperclip className="w-3 h-3"/> Attached</span>
-                                    <button type="button" onClick={() => onPreview(currentAttachment)} className="text-xs text-indigo-600 font-bold flex items-center gap-1"><Eye className="w-3 h-3"/> View</button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                        <textarea value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-2 border rounded text-sm" placeholder="Optional note (e.g. Late arrival)" />
-                    </div>
-                </div>
-                <div className="flex justify-between items-center mt-6">
-                    {currentStatus && onDelete ? (
-                        <button onClick={onDelete} className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded text-sm font-medium transition-colors">
-                            <Trash2 className="w-4 h-4" /> Clear Status
-                        </button>
-                    ) : <div></div>}
-                    <div className="flex gap-2">
-                        <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                        <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-};
-
-const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
-    const [csv, setCsv] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    
-    const downloadSample = () => {
-        const headers = "EmployeeCode,Date,Status,Overtime";
-        const row1 = "10001,2025/12/01,P,2";
-        const row2 = "10002,2025/12/01,A,0";
-        const content = `${headers}\n${row1}\n${row2}`;
-        const blob = new Blob([content], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'attendance_sample.csv';
-        a.click();
-    };
-
-    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            handleFileImport(e.target.files[0], (text) => setCsv(text));
-        }
-    };
-
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Bulk Import Attendance</h3>
-                    <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
-                        <Download className="w-3 h-3"/> Download Sample CSV
-                    </button>
-                </div>
-                <div className="mb-4 p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center text-center">
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600 font-medium mb-1">Upload CSV or Excel File</p>
-                    <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".csv, .xlsx, .xls" className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-                </div>
-                <p className="text-xs font-bold mb-1">Or paste CSV data here:</p>
-                <textarea value={csv} onChange={e => setCsv(e.target.value)} placeholder="Format: EmployeeCode, Date(YYYY/MM/DD), Status(P/A/etc), OT(number)" className="flex-1 w-full p-4 border rounded font-mono text-xs" />
-                <div className="flex justify-end gap-2 mt-4">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={() => onImport(csv)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Import</button>
-                </div>
-            </div>
-        </div>
-    )
-};
-
-const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
-    const [csv, setCsv] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const downloadSample = () => {
-        const headers = "Code,Name,Designation,Department,Company,JoiningDate,Type,Status,Team,Location,Basic,Housing,Transport,Other,EmiratesID,EIDExpiry,Passport,PassExpiry,LabourCard,LCExpiry,VacationDate";
-        const row1 = "EMP001,John Doe,Manager,IT,MyCompany,2025-01-01,Staff,Active,Office Staff,Dubai,5000,2000,1000,500,784-1234-1234567-1,2026-01-01,N123456,2030-01-01,12345678,2026-05-01,2025-12-15";
-        const content = `${headers}\n${row1}`;
-        const blob = new Blob([content], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'employee_import_sample.csv';
-        a.click();
-    };
-
-    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            handleFileImport(e.target.files[0], (text) => setCsv(text));
-        }
-    };
-
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh]">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Bulk Import Employees</h3>
-                    <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
-                        <Download className="w-3 h-3"/> Download Sample CSV
-                    </button>
-                </div>
-                <div className="mb-4 p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center text-center">
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600 font-medium mb-1">Upload CSV or Excel File</p>
-                    <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".csv, .xlsx, .xls" className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-                </div>
-                <p className="text-xs text-gray-500 mb-2">Header: Code, Name, ...</p>
-                <textarea value={csv} onChange={e => setCsv(e.target.value)} className="flex-1 w-full p-4 border rounded font-mono text-xs" placeholder="Paste CSV data here..." />
-                <div className="flex justify-end gap-2 mt-4">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={() => onImport(csv)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Import</button>
-                </div>
-            </div>
-        </div>
-    )
-};
-
-// ... (EditEmployeeModal, OnboardingWizard, OffboardingWizard, RehireModal, LeaveRequestModal, HolidayManagementModal - same)
-const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
-    // ... (same)
-    const [formData, setFormData] = useState<Employee>({...employee});
-    const handleChange = (field: string, value: any) => setFormData(prev => ({...prev, [field]: value}));
-    const handleSalaryChange = (field: string, value: number) => setFormData(prev => ({...prev, salary: {...prev.salary, [field]: value}}));
-    const handleDocChange = (field: string, value: string) => setFormData(prev => ({...prev, documents: {...prev.documents, [field]: value}}));
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl p-6 my-8">
-                <div className="flex justify-between mb-6">
-                    <h3 className="font-bold text-lg">Edit Employee: {employee.name}</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500"/></button>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <input className="p-2 border rounded" placeholder="Name" value={formData.name} onChange={e => handleChange('name', e.target.value)} />
-                    <input className="p-2 border rounded" placeholder="Designation" value={formData.designation} onChange={e => handleChange('designation', e.target.value)} />
-                    <input className="p-2 border rounded" placeholder="Department" value={formData.department} onChange={e => handleChange('department', e.target.value)} />
-                    <select className="p-2 border rounded" value={formData.company} onChange={e => handleChange('company', e.target.value)}>
-                        {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    <select className="p-2 border rounded" value={formData.team} onChange={e => handleChange('team', e.target.value)}>
-                         <option value="Internal Team">Internal Team</option>
-                         <option value="External Team">External Team</option>
-                         <option value="Office Staff">Office Staff</option>
-                    </select>
-                    <input className="p-2 border rounded" placeholder="Work Location" value={formData.workLocation} onChange={e => handleChange('workLocation', e.target.value)} />
-                </div>
-                <h4 className="font-bold text-sm mb-2 mt-4">Salary Structure</h4>
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                    <input type="number" className="p-2 border rounded" placeholder="Basic" value={formData.salary.basic} onChange={e => handleSalaryChange('basic', parseFloat(e.target.value))} />
-                    <input type="number" className="p-2 border rounded" placeholder="Housing" value={formData.salary.housing} onChange={e => handleSalaryChange('housing', parseFloat(e.target.value))} />
-                    <input type="number" className="p-2 border rounded" placeholder="Transport" value={formData.salary.transport} onChange={e => handleSalaryChange('transport', parseFloat(e.target.value))} />
-                    <input type="number" className="p-2 border rounded" placeholder="Other" value={formData.salary.other} onChange={e => handleSalaryChange('other', parseFloat(e.target.value))} />
-                </div>
-                <h4 className="font-bold text-sm mb-2 mt-4">Documents & Dates</h4>
-                <div className="grid grid-cols-2 gap-4">
-                     <div><label className="text-xs">Emirates ID</label><input className="w-full p-2 border rounded" value={formData.documents?.emiratesId || ''} onChange={e => handleDocChange('emiratesId', e.target.value)} /></div>
-                     <div><label className="text-xs">EID Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.emiratesIdExpiry || ''} onChange={e => handleDocChange('emiratesIdExpiry', e.target.value)} /></div>
-                     <div><label className="text-xs">Passport No</label><input className="w-full p-2 border rounded" value={formData.documents?.passportNumber || ''} onChange={e => handleDocChange('passportNumber', e.target.value)} /></div>
-                     <div><label className="text-xs">Passport Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.passportExpiry || ''} onChange={e => handleDocChange('passportExpiry', e.target.value)} /></div>
-                     <div><label className="text-xs">Labour Card No</label><input className="w-full p-2 border rounded" value={formData.documents?.labourCardNumber || ''} onChange={e => handleDocChange('labourCardNumber', e.target.value)} /></div>
-                     <div><label className="text-xs">LC Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.labourCardExpiry || ''} onChange={e => handleDocChange('labourCardExpiry', e.target.value)} /></div>
-                     <div><label className="text-xs">Vacation Date</label><input type="date" className="w-full p-2 border rounded" value={formData.vacationScheduledDate || ''} onChange={e => handleChange('vacationScheduledDate', e.target.value)} /></div>
-                </div>
-                <div className="flex justify-end gap-2 mt-4">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={() => onSave(formData)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    )
-};
-
 const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
     const [step, setStep] = useState(1);
     const [rehireMode, setRehireMode] = useState(false);
-    const [data, setData] = useState<Partial<Employee>>({
+    const [data, setData] = useState<any>({
         type: StaffType.WORKER,
         status: 'Active',
-        salary: { basic: 0, housing: 0, transport: 0, other: 0 },
+        salary: { basic: 0, housing: 0, transport: 0, other: 0, airTicket: 0, leaveSalary: 0 },
         leaveBalance: 0,
         active: true,
         joiningDate: formatDateLocal(new Date()),
         documents: {}
     });
 
-    const checkCode = (e: React.FocusEvent<HTMLInputElement>) => {
+    const checkCode = (e: any) => {
         const code = e.target.value;
         if (!code) return;
         const all = getEmployees();
@@ -1006,34 +952,38 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                         joiningDate: formatDateLocal(new Date()),
                         rejoiningDate: formatDateLocal(new Date()),
                         rejoiningReason: '',
-                        offboardingDetails: undefined 
+                        offboardingDetails: undefined
                     });
                 } else {
-                     setData(prev => ({...prev, code: ''}));
+                    setData(prev => ({ ...prev, code: '' }));
                 }
             } else {
                 alert(`Employee Code ${code} is already active!`);
-                setData(prev => ({...prev, code: ''}));
+                setData(prev => ({ ...prev, code: '' }));
             }
         } else {
             setRehireMode(false);
         }
     };
 
+    const handleSalaryChange = (field: string, value: string) => {
+        const numVal = value === '' ? 0 : parseFloat(value);
+        setData(prev => ({
+            ...prev,
+            salary: { ...prev.salary, [field]: numVal }
+        }));
+    };
+
     const handleSave = () => {
         if (!data.name || !data.code) return alert("Name and Code are required");
-        let employeeToSave = { ...data } as Employee;
+        let employeeToSave = { ...data };
         if (!rehireMode) {
-             if (!employeeToSave.id) employeeToSave.id = Math.random().toString(36).substr(2, 9);
-             if(!employeeToSave.joiningDate) employeeToSave.joiningDate = formatDateLocal(new Date());
-        } else {
-            if (!employeeToSave.rejoiningReason) return alert("Please enter a reason for re-joining.");
-            employeeToSave.joiningDate = employeeToSave.rejoiningDate || formatDateLocal(new Date());
+            if (!employeeToSave.id) employeeToSave.id = Math.random().toString(36).substr(2, 9);
         }
         saveEmployee(employeeToSave);
         onComplete();
     };
-    // ... (Rest of Onboarding Wizard UI - using data/setData)
+
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl p-6 h-[85vh] flex flex-col">
@@ -1043,75 +993,87 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                             {rehireMode ? <><RefreshCcw className="w-5 h-5 text-green-600"/> Re-hiring Employee</> : 'Onboard New Employee'}
                         </h3>
                         <div className="flex gap-2 mt-2 w-64">
-                            {[1,2,3,4].map(i => (<div key={i} className={`h-1 flex-1 rounded-full ${step >= i ? 'bg-indigo-600' : 'bg-gray-200'}`}/>))}
+                            {[1, 2, 3, 4].map(i => <div key={i} className={`h-1 flex-1 rounded-full ${step >= i ? 'bg-indigo-600' : 'bg-gray-200'}`} />)}
                         </div>
                         <p className="text-xs text-gray-500 mt-1">Step {step} of 4</p>
                     </div>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600"/></button>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
                 </div>
+
                 <div className="flex-1 overflow-y-auto p-1">
                     {step === 1 && (
                         <div className="space-y-4">
                             <h4 className="font-bold text-sm text-gray-700">Personal Info</h4>
                             <div className="relative">
-                                <input className={`w-full p-2 border rounded ${rehireMode ? 'bg-green-50 border-green-300' : ''}`} placeholder="Employee Code (ID)" value={data.code || ''} onChange={e => setData({...data, code: e.target.value})} onBlur={checkCode} disabled={rehireMode} />
+                                <input className={`w-full p-2 border rounded ${rehireMode ? 'bg-green-50 border-green-300' : ''}`} placeholder="Employee Code (ID)" value={data.code || ''} onChange={e => setData({ ...data, code: e.target.value })} onBlur={checkCode} disabled={rehireMode} />
                                 {rehireMode && <span className="absolute right-3 top-2.5 text-xs font-bold text-green-600">Existing Record Found</span>}
                             </div>
-                            {rehireMode && (
-                                <div className="bg-green-50 p-3 rounded border border-green-200">
-                                    <label className="block text-xs font-bold text-green-800 mb-1">Reason for Re-joining</label>
-                                    <textarea className="w-full p-2 border rounded text-sm" placeholder="Why?" value={data.rejoiningReason || ''} onChange={e => setData({...data, rejoiningReason: e.target.value})} />
-                                </div>
-                            )}
-                            <input className="w-full p-2 border rounded" placeholder="Full Name" value={data.name || ''} onChange={e => setData({...data, name: e.target.value})} />
-                            <select className="w-full p-2 border rounded" value={data.company || ''} onChange={e => setData({...data, company: e.target.value})}>
+                            <input className="w-full p-2 border rounded" placeholder="Full Name" value={data.name || ''} onChange={e => setData({ ...data, name: e.target.value })} />
+                            <select className="w-full p-2 border rounded" value={data.company || ''} onChange={e => setData({ ...data, company: e.target.value })}>
                                 <option value="">Select Company</option>
-                                {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                {companies.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-gray-500">{rehireMode ? 'New Joining Date' : 'Joining Date'}</label>
-                                    <input type="date" className="w-full p-2 border rounded" value={rehireMode ? (data.rejoiningDate || '') : (data.joiningDate || '')} onChange={e => rehireMode ? setData({...data, rejoiningDate: e.target.value}) : setData({...data, joiningDate: e.target.value})} />
+                                    <label className="text-xs text-gray-500">Joining Date</label>
+                                    <input type="date" className="w-full p-2 border rounded" value={rehireMode ? (data.rejoiningDate || '') : (data.joiningDate || '')} onChange={e => rehireMode ? setData({ ...data, rejoiningDate: e.target.value }) : setData({ ...data, joiningDate: e.target.value })} />
                                 </div>
                             </div>
                         </div>
                     )}
+
                     {step === 2 && (
                         <div className="space-y-4">
                             <h4 className="font-bold text-sm text-gray-700">Job Details</h4>
-                            <input className="w-full p-2 border rounded" placeholder="Designation" value={data.designation || ''} onChange={e => setData({...data, designation: e.target.value})} />
-                            <input className="w-full p-2 border rounded" placeholder="Department" value={data.department || ''} onChange={e => setData({...data, department: e.target.value})} />
-                            <select className="w-full p-2 border rounded" value={data.team || 'Internal Team'} onChange={e => setData({...data, team: e.target.value as any})}>
+                            <input className="w-full p-2 border rounded" placeholder="Designation" value={data.designation || ''} onChange={e => setData({ ...data, designation: e.target.value })} />
+                            <input className="w-full p-2 border rounded" placeholder="Department" value={data.department || ''} onChange={e => setData({ ...data, department: e.target.value })} />
+                            <select className="w-full p-2 border rounded" value={data.team || 'Internal Team'} onChange={e => setData({ ...data, team: e.target.value })}>
                                 <option value="Internal Team">Internal Team</option>
                                 <option value="External Team">External Team</option>
                                 <option value="Office Staff">Office Staff</option>
                             </select>
-                            <select className="w-full p-2 border rounded" value={data.type || StaffType.WORKER} onChange={e => setData({...data, type: e.target.value as any})}>
+                            <select className="w-full p-2 border rounded" value={data.type || StaffType.WORKER} onChange={e => setData({ ...data, type: e.target.value })}>
                                 <option value={StaffType.WORKER}>Worker</option>
                                 <option value={StaffType.OFFICE}>Office Staff</option>
                             </select>
-                            <input className="w-full p-2 border rounded" placeholder="Work Location" value={data.workLocation || ''} onChange={e => setData({...data, workLocation: e.target.value})} />
+                            <input className="w-full p-2 border rounded" placeholder="Work Location" value={data.workLocation || ''} onChange={e => setData({ ...data, workLocation: e.target.value })} />
                         </div>
                     )}
+
                     {step === 3 && (
                         <div className="space-y-4">
                             <h4 className="font-bold text-sm text-gray-700">Salary & Documents</h4>
                             <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded mb-4">
-                                <input type="number" className="p-2 border rounded" placeholder="Basic" value={data.salary?.basic} onChange={e => setData({...data, salary: {...data.salary!, basic: parseFloat(e.target.value)}})} />
-                                <input type="number" className="p-2 border rounded" placeholder="Housing" value={data.salary?.housing} onChange={e => setData({...data, salary: {...data.salary!, housing: parseFloat(e.target.value)}})} />
-                                <input type="number" className="p-2 border rounded" placeholder="Transport" value={data.salary?.transport} onChange={e => setData({...data, salary: {...data.salary!, transport: parseFloat(e.target.value)}})} />
-                                <input type="number" className="p-2 border rounded" placeholder="Other" value={data.salary?.other} onChange={e => setData({...data, salary: {...data.salary!, other: parseFloat(e.target.value)}})} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <input className="p-2 border rounded" placeholder="Emirates ID" value={data.documents?.emiratesId || ''} onChange={e => setData({...data, documents: {...data.documents, emiratesId: e.target.value}})} />
-                                <div><label className="text-xs text-gray-500">EID Expiry</label><input type="date" className="w-full p-2 border rounded" value={data.documents?.emiratesIdExpiry || ''} onChange={e => setData({...data, documents: {...data.documents, emiratesIdExpiry: e.target.value}})} /></div>
-                                <input className="p-2 border rounded" placeholder="Passport No" value={data.documents?.passportNumber || ''} onChange={e => setData({...data, documents: {...data.documents, passportNumber: e.target.value}})} />
-                                <div><label className="text-xs text-gray-500">Passport Expiry</label><input type="date" className="w-full p-2 border rounded" value={data.documents?.passportExpiry || ''} onChange={e => setData({...data, documents: {...data.documents, passportExpiry: e.target.value}})} /></div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Basic Salary</label>
+                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.basic} onChange={e => handleSalaryChange('basic', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Housing</label>
+                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.housing} onChange={e => handleSalaryChange('housing', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Transport</label>
+                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.transport} onChange={e => handleSalaryChange('transport', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Air Ticket</label>
+                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.airTicket} onChange={e => handleSalaryChange('airTicket', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Leave Payment</label>
+                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.leaveSalary} onChange={e => handleSalaryChange('leaveSalary', e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Other</label>
+                                    <input type="number" className="w-full p-2 border rounded" value={data.salary?.other} onChange={e => handleSalaryChange('other', e.target.value)} />
+                                </div>
                             </div>
                         </div>
                     )}
+
                     {step === 4 && (
-                         <div className="space-y-4">
+                        <div className="space-y-4">
                             <h4 className="font-bold text-sm text-gray-700">Review Details</h4>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm bg-gray-50 p-4 rounded border">
                                 <span className="text-gray-500">Code:</span><span className="font-mono font-bold">{data.code}</span>
@@ -1119,22 +1081,223 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                                 <span className="text-gray-500">Company:</span><span>{data.company}</span>
                                 <span className="text-gray-500">Designation:</span><span>{data.designation}</span>
                                 <span className="text-gray-500">Team:</span><span>{data.team}</span>
-                                <span className="text-gray-500">Total Salary:</span><span className="font-bold text-green-600">{((data.salary?.basic||0) + (data.salary?.housing||0) + (data.salary?.transport||0) + (data.salary?.other||0)).toLocaleString()}</span>
+                                <span className="text-gray-500">Total Salary:</span>
+                                <span className="font-bold text-green-600">
+                                    {((data.salary?.basic || 0) + (data.salary?.housing || 0) + (data.salary?.transport || 0) + (data.salary?.other || 0) + (data.salary?.airTicket || 0) + (data.salary?.leaveSalary || 0)).toLocaleString()}
+                                </span>
                             </div>
                         </div>
                     )}
                 </div>
+
                 <div className="flex justify-between mt-6 pt-4 border-t">
                     {step > 1 ? <button onClick={() => setStep(step - 1)} className="px-4 py-2 border rounded hover:bg-gray-50">Back</button> : <button onClick={onClose} className="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>}
-                    {step < 4 ? <button onClick={() => setStep(step + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Next</button> : <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"><CheckCircle className="w-4 h-4"/> {rehireMode ? 'Confirm Re-hire' : 'Complete Onboarding'}</button>}
+                    {step < 4 ? <button onClick={() => setStep(step + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Next</button> : <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"><CheckCircle className="w-4 h-4" /> {rehireMode ? 'Confirm Re-hire' : 'Complete Onboarding'}</button>}
                 </div>
             </div>
         </div>
-    )
+    );
+};
+
+const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any) => {
+    const [newName, setNewName] = useState('');
+    const [editingName, setEditingName] = useState(null);
+    const [editValue, setEditValue] = useState('');
+
+    const handleAdd = () => {
+        if (!newName.trim()) return;
+        const updated = addCompany(newName.trim());
+        onDataChange(updated);
+        setNewName('');
+    };
+
+    const handleDelete = (name: string) => {
+        if (window.confirm(`Delete "${name}"?`)) {
+            const updated = deleteCompany(name);
+            onDataChange(updated);
+        }
+    };
+
+    const startEdit = (name: any) => { setEditingName(name); setEditValue(name); };
+    
+    const saveEdit = () => {
+        if (editingName && editValue.trim()) {
+            const updated = updateCompany(editingName, editValue.trim());
+            onDataChange(updated);
+            setEditingName(null);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 flex flex-col max-h-[80vh]">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold">Manage Companies</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
+                </div>
+                <div className="flex gap-2 mb-6">
+                    <input value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 p-2 border rounded-lg" placeholder="New company name" />
+                    <button onClick={handleAdd} disabled={!newName.trim()} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">Add</button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    <ul className="space-y-2">
+                        {companies.map((c: string) => (
+                            <li key={c} className="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 group">
+                                {editingName === c ? (
+                                    <div className="flex-1 flex gap-2 items-center">
+                                        <input value={editValue} onChange={e => setEditValue(e.target.value)} className="flex-1 p-2 border rounded-lg text-sm" autoFocus />
+                                        <button onClick={saveEdit} className="text-green-600 p-1.5"><Check className="w-4 h-4" /></button>
+                                        <button onClick={() => setEditingName(null)} className="text-gray-500 p-1.5"><XCircle className="w-4 h-4" /></button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span className="flex-1 text-sm font-medium truncate" title={c}>{c}</span>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => startEdit(c)} className="text-blue-600 p-1.5"><Edit className="w-4 h-4" /></button>
+                                            <button onClick={() => handleDelete(c)} className="text-red-600 p-1.5"><Trash2 className="w-4 h-4" /></button>
+                                        </div>
+                                    </>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ReportsView = ({ employees, attendance }: any) => {
+    const [fromDate, setFromDate] = useState(formatDateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+    const [toDate, setToDate] = useState(formatDateLocal(new Date()));
+
+    const filterAttendance = () => {
+        return attendance.filter((r: any) => r.date >= fromDate && r.date <= toDate);
+    };
+
+    const filteredRecs = filterAttendance();
+    const totalPresent = filteredRecs.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
+    const totalAbsent = filteredRecs.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
+    const totalLeaves = filteredRecs.filter((r: any) => [AttendanceStatus.SICK_LEAVE, AttendanceStatus.ANNUAL_LEAVE, AttendanceStatus.EMERGENCY_LEAVE].includes(r.status)).length;
+    const totalOTHours = filteredRecs.reduce((acc: number, curr: any) => acc + (curr.overtimeHours || 0), 0);
+    const activeEmployeesCount = employees.filter((e: any) => e.active).length;
+
+    // Calculate estimated cost
+    let totalEstCost = 0;
+    employees.filter((e: any) => e.active).forEach((emp: any) => {
+        const empRecs = filteredRecs.filter((r: any) => r.employeeId === emp.id);
+        const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = emp.salary || {};
+        const gross = basic + housing + transport + other + airTicket + leaveSalary;
+        const dailyRate = gross / 30;
+        
+        // Basic Pay for days present/weekoff/holidays/paid leaves
+        const paidDays = empRecs.filter((r: any) => r.status !== AttendanceStatus.ABSENT && r.status !== AttendanceStatus.UNPAID_LEAVE).length;
+        const basicCost = dailyRate * paidDays;
+
+        // Additional Earnings
+        const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
+        
+        totalEstCost += basicCost + overtimePay + holidayPay + weekOffPay;
+    });
+
+    const employeeStats = employees.filter((e: any) => e.active).map((emp: any) => {
+        const empRecs = filteredRecs.filter((r: any) => r.employeeId === emp.id);
+        const present = empRecs.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
+        const absent = empRecs.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
+        const ot = empRecs.reduce((acc: number, curr: any) => acc + (curr.overtimeHours || 0), 0);
+        
+        // Simplified cost per employee for the table
+        const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = emp.salary || {};
+        const gross = basic + housing + transport + other + airTicket + leaveSalary;
+        const daily = gross / 30;
+        const paid = empRecs.filter((r: any) => r.status !== AttendanceStatus.ABSENT && r.status !== AttendanceStatus.UNPAID_LEAVE).length;
+        const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
+        const cost = (daily * paid) + overtimePay + holidayPay + weekOffPay;
+
+        return { ...emp, present, absent, ot, cost };
+    });
+
+    return (
+        <div className="space-y-6 animate-fade-in">
+            <div className="flex justify-between items-end mb-6">
+                <div className="flex gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">From</label>
+                        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="p-2 border rounded-lg bg-white" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">To</label>
+                        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="p-2 border rounded-lg bg-white" />
+                    </div>
+                </div>
+                <button onClick={() => window.print()} className="bg-gray-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm hover:bg-gray-800">
+                    <Printer className="w-4 h-4" /> Print Report
+                </button>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border p-8 text-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Workforce Analytics Report</h2>
+                <p className="text-gray-500 mt-1">Period: {fromDate} to {toDate}</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-blue-50 p-6 rounded-lg border border-blue-100">
+                    <h3 className="text-blue-800 text-xs font-bold uppercase mb-1">Est. Cost</h3>
+                    <div className="text-2xl font-bold text-blue-900">AED {totalEstCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                </div>
+                <div className="bg-green-50 p-6 rounded-lg border border-green-100">
+                    <h3 className="text-green-800 text-xs font-bold uppercase mb-1">Total OT Hours</h3>
+                    <div className="text-2xl font-bold text-green-900">{totalOTHours}</div>
+                </div>
+                <div className="bg-orange-50 p-6 rounded-lg border border-orange-100">
+                    <h3 className="text-orange-800 text-xs font-bold uppercase mb-1">Absent Days</h3>
+                    <div className="text-2xl font-bold text-orange-900">{totalAbsent}</div>
+                </div>
+                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                    <h3 className="text-gray-500 text-xs font-bold uppercase mb-1">Employees Active</h3>
+                    <div className="text-2xl font-bold text-gray-900">{activeEmployeesCount}</div>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-600 font-bold text-xs uppercase border-b">
+                        <tr>
+                            <th className="p-4">Employee</th>
+                            <th className="p-4">Company</th>
+                            <th className="p-4 text-center">Present</th>
+                            <th className="p-4 text-center">Absent</th>
+                            <th className="p-4 text-center text-blue-600">OT (Hrs)</th>
+                            <th className="p-4 text-right">Est. Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {employeeStats.map(stat => (
+                            <tr key={stat.id} className="hover:bg-gray-50">
+                                <td className="p-4 font-bold text-gray-800">{stat.name}</td>
+                                <td className="p-4 text-gray-500 text-xs">{stat.company}</td>
+                                <td className="p-4 text-center">{stat.present}</td>
+                                <td className="p-4 text-center text-red-500 font-bold">{stat.absent}</td>
+                                <td className="p-4 text-center text-blue-600 font-bold">{stat.ot}</td>
+                                <td className="p-4 text-right font-bold">AED {stat.cost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                            </tr>
+                        ))}
+                        <tr className="bg-gray-50 font-bold">
+                            <td className="p-4" colSpan={4}>TOTAL</td>
+                            <td className="p-4 text-center text-blue-600">{totalOTHours}</td>
+                            <td className="p-4 text-right">AED {totalEstCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 };
 
 const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
-    // ... (Same)
+    const [step, setStep] = useState(1);
     const [details, setDetails] = useState<OffboardingDetails>({
         type: 'Resignation',
         exitDate: formatDateLocal(new Date()),
@@ -1150,54 +1313,225 @@ const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
         documents: []
     });
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (field: keyof OffboardingDetails, value: any) => {
+        setDetails(prev => {
+            const updated = { ...prev, [field]: value };
+            // Auto calc net
+            if (['gratuity', 'leaveEncashment', 'salaryDues', 'otherDues', 'deductions'].includes(field)) {
+                updated.netSettlement = (Number(updated.gratuity) || 0) + 
+                                      (Number(updated.leaveEncashment) || 0) + 
+                                      (Number(updated.salaryDues) || 0) + 
+                                      (Number(updated.otherDues) || 0) - 
+                                      (Number(updated.deductions) || 0);
+            }
+            return updated;
+        });
+    };
+
+    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             const base64 = await readFileAsBase64(file);
-            setDetails(prev => ({...prev, documents: [...(prev.documents || []), { name: file.name, data: base64 }]}));
+            setDetails(prev => ({
+                ...prev,
+                documents: [...(prev.documents || []), { name: file.name, data: base64 }]
+            }));
         }
     };
 
-    const removeFile = (index: number) => setDetails(prev => ({...prev, documents: prev.documents?.filter((_, i) => i !== index)}));
-    const handleOffboard = () => { offboardEmployee(employee.id, details); onComplete(); }
+    const handleSubmit = () => {
+        offboardEmployee(employee.id, details);
+        onComplete();
+    };
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 my-8">
-                 <h3 className="font-bold text-lg mb-4 text-red-600">Offboard Employee: {employee.name}</h3>
-                 <div className="space-y-4">
-                     <select className="w-full p-2 border rounded" value={details.type} onChange={e => setDetails({...details, type: e.target.value as any})}>
-                         <option value="Resignation">Resignation</option>
-                         <option value="Termination">Termination</option>
-                         <option value="End of Contract">End of Contract</option>
-                         <option value="Absconding">Absconding</option>
-                     </select>
-                     <input type="date" className="w-full p-2 border rounded" value={details.exitDate} onChange={e => setDetails({...details, exitDate: e.target.value})} />
-                     <textarea className="w-full p-2 border rounded" placeholder="Reason" value={details.reason} onChange={e => setDetails({...details, reason: e.target.value})} />
-                     {/* Financials */}
-                     <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded">
-                         <div><label className="text-xs">Gratuity</label><input type="number" className="w-full p-1 border" value={details.gratuity} onChange={e => setDetails({...details, gratuity: parseFloat(e.target.value)})} /></div>
-                         <div><label className="text-xs">Leave Encashment</label><input type="number" className="w-full p-1 border" value={details.leaveEncashment} onChange={e => setDetails({...details, leaveEncashment: parseFloat(e.target.value)})} /></div>
-                         <div><label className="text-xs">Salary Dues</label><input type="number" className="w-full p-1 border" value={details.salaryDues} onChange={e => setDetails({...details, salaryDues: parseFloat(e.target.value)})} /></div>
-                         <div><label className="text-xs">Other Dues</label><input type="number" className="w-full p-1 border" value={details.otherDues} onChange={e => setDetails({...details, otherDues: parseFloat(e.target.value)})} /></div>
-                         <div><label className="text-xs">Deductions</label><input type="number" className="w-full p-1 border" value={details.deductions} onChange={e => setDetails({...details, deductions: parseFloat(e.target.value)})} /></div>
-                     </div>
-                     {/* Document Upload */}
-                     <div className="border p-3 rounded-lg bg-blue-50">
-                        <label className="text-sm font-bold text-blue-800 flex items-center gap-2 mb-2"><Upload className="w-4 h-4" /> Upload Documents</label>
-                        <input type="file" onChange={handleFileChange} className="text-xs w-full mb-2" />
-                        <ul className="space-y-1">
-                            {details.documents?.map((doc, idx) => (
-                                <li key={idx} className="flex justify-between items-center text-xs bg-white p-1 rounded border"><span className="truncate max-w-[200px]">{doc.name}</span><button onClick={() => removeFile(idx)} className="text-red-500 hover:text-red-700"><XCircle className="w-3 h-3"/></button></li>
-                            ))}
-                        </ul>
-                     </div>
-                     <div className="flex items-center gap-2"><input type="checkbox" checked={details.assetsReturned} onChange={e => setDetails({...details, assetsReturned: e.target.checked})} /><label>All Assets Returned</label></div>
-                 </div>
-                 <div className="flex justify-end gap-2 mt-6"><button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button><button onClick={handleOffboard} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Confirm Offboarding</button></div>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 h-[80vh] flex flex-col">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h3 className="font-bold text-lg text-red-600 flex items-center gap-2"><LogOut className="w-5 h-5"/> Offboard Employee: {employee.name}</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-1">
+                    {step === 1 && (
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-sm">Exit Details</h4>
+                            <select className="w-full p-2 border rounded" value={details.type} onChange={e => handleChange('type', e.target.value)}>
+                                <option value="Resignation">Resignation</option>
+                                <option value="Termination">Termination</option>
+                                <option value="End of Contract">End of Contract</option>
+                                <option value="Absconding">Absconding</option>
+                            </select>
+                            <div>
+                                <label className="text-xs text-gray-500">Exit Date</label>
+                                <input type="date" className="w-full p-2 border rounded" value={details.exitDate} onChange={e => handleChange('exitDate', e.target.value)} />
+                            </div>
+                            <textarea className="w-full p-2 border rounded h-24" placeholder="Reason for leaving..." value={details.reason} onChange={e => handleChange('reason', e.target.value)}></textarea>
+                        </div>
+                    )}
+
+                    {step === 2 && (
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-sm">Final Settlement Calculation</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs">Gratuity</label><input type="number" className="w-full p-2 border rounded" value={details.gratuity} onChange={e => handleChange('gratuity', parseFloat(e.target.value))} /></div>
+                                <div><label className="text-xs">Leave Encashment</label><input type="number" className="w-full p-2 border rounded" value={details.leaveEncashment} onChange={e => handleChange('leaveEncashment', parseFloat(e.target.value))} /></div>
+                                <div><label className="text-xs">Salary Dues</label><input type="number" className="w-full p-2 border rounded" value={details.salaryDues} onChange={e => handleChange('salaryDues', parseFloat(e.target.value))} /></div>
+                                <div><label className="text-xs">Other Dues</label><input type="number" className="w-full p-2 border rounded" value={details.otherDues} onChange={e => handleChange('otherDues', parseFloat(e.target.value))} /></div>
+                                <div><label className="text-xs text-red-600">Deductions</label><input type="number" className="w-full p-2 border rounded border-red-200" value={details.deductions} onChange={e => handleChange('deductions', parseFloat(e.target.value))} /></div>
+                            </div>
+                            <div className="p-4 bg-gray-100 rounded text-right">
+                                <span className="text-sm font-bold text-gray-600">Net Settlement Amount:</span>
+                                <div className="text-2xl font-bold text-gray-900">AED {details.netSettlement.toLocaleString()}</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-sm">Assets & Documents</h4>
+                            <div className="flex items-center gap-2 p-3 border rounded bg-gray-50">
+                                <input type="checkbox" checked={details.assetsReturned} onChange={e => handleChange('assetsReturned', e.target.checked)} className="w-5 h-5 text-indigo-600" />
+                                <span className="text-sm font-medium">All company assets (Laptop, Sim, ID, Tools) returned?</span>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-2">Upload Exit Documents (Resignation Letter, Clearance)</label>
+                                <input type="file" onChange={handleFile} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                                <ul className="mt-2 space-y-1">
+                                    {details.documents?.map((d, i) => (
+                                        <li key={i} className="text-xs bg-gray-100 p-1 rounded flex justify-between">{d.name}</li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            <textarea className="w-full p-2 border rounded h-20" placeholder="Additional Notes..." value={details.notes} onChange={e => handleChange('notes', e.target.value)}></textarea>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-between mt-6 border-t pt-4">
+                    {step > 1 ? <button onClick={() => setStep(step - 1)} className="px-4 py-2 border rounded">Back</button> : <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>}
+                    {step < 3 ? <button onClick={() => setStep(step + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded">Next</button> : <button onClick={handleSubmit} className="px-4 py-2 bg-red-600 text-white rounded font-bold">Confirm Offboarding</button>}
+                </div>
             </div>
         </div>
-    )
+    );
+};
+
+const PayslipModal = ({ employee, month, year, onClose }: any) => {
+    const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+    
+    useEffect(() => {
+        const start = formatDateLocal(new Date(year, month, 1));
+        const end = formatDateLocal(new Date(year, month + 1, 0));
+        setAttendance(getAttendanceRange(start, end).filter(r => r.employeeId === employee.id));
+    }, [employee, month, year]);
+
+    const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
+    
+    const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = employee.salary || {};
+    const gross = basic + housing + transport + other + airTicket + leaveSalary;
+    
+    const absentDays = attendance.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
+    const deduction = (gross / 30) * absentDays;
+    
+    const { overtimePay, holidayPay, weekOffPay, totalOTHours } = calculateAdditionalEarnings(attendance, employee.team);
+    const totalAdditions = overtimePay + holidayPay + weekOffPay;
+    const netSalary = gross - deduction + totalAdditions;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:p-0 print:static print:bg-white">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-8 print:shadow-none print:w-full print:max-w-none">
+                <div className="flex justify-between items-start mb-8 border-b pb-6 print:border-gray-300">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-indigo-600 p-3 rounded-lg print:hidden"><DollarSign className="w-8 h-8 text-white" /></div>
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900">Payslip</h2>
+                            <p className="text-gray-500">{employee.company}</p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <h3 className="text-xl font-bold text-gray-800">{monthName} {year}</h3>
+                        <p className="text-sm text-gray-500">Generated on {new Date().toLocaleDateString()}</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 mb-8">
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Employee Details</h4>
+                        <div className="space-y-1 text-sm">
+                            <div className="flex justify-between"><span className="text-gray-600">Name:</span> <span className="font-bold">{employee.name}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">Code:</span> <span className="font-mono">{employee.code}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">Designation:</span> <span>{employee.designation}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">Joining Date:</span> <span>{employee.joiningDate}</span></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Payment Details</h4>
+                        <div className="space-y-1 text-sm">
+                            <div className="flex justify-between"><span className="text-gray-600">Bank:</span> <span>{employee.bankName || 'Cash'}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">IBAN:</span> <span className="font-mono">{employee.iban || '-'}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">Days Worked:</span> <span>{30 - absentDays} / 30</span></div>
+                            <div className="flex justify-between"><span className="text-gray-600">OT Hours:</span> <span>{totalOTHours}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mb-8">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Earnings & Deductions</h4>
+                    <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 text-gray-700 font-bold border-b">
+                                <tr>
+                                    <th className="p-3 text-left">Description</th>
+                                    <th className="p-3 text-right">Amount (AED)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                <tr><td className="p-3">Basic Salary</td><td className="p-3 text-right">{basic.toLocaleString()}</td></tr>
+                                <tr><td className="p-3">Housing Allowance</td><td className="p-3 text-right">{housing.toLocaleString()}</td></tr>
+                                <tr><td className="p-3">Transport Allowance</td><td className="p-3 text-right">{transport.toLocaleString()}</td></tr>
+                                <tr><td className="p-3">Other Allowance</td><td className="p-3 text-right">{other.toLocaleString()}</td></tr>
+                                {airTicket > 0 && <tr><td className="p-3">Air Ticket</td><td className="p-3 text-right">{airTicket.toLocaleString()}</td></tr>}
+                                {leaveSalary > 0 && <tr><td className="p-3">Leave Salary</td><td className="p-3 text-right">{leaveSalary.toLocaleString()}</td></tr>}
+                                
+                                {overtimePay > 0 && <tr><td className="p-3 text-blue-600">Overtime Pay</td><td className="p-3 text-right text-blue-600">{overtimePay.toLocaleString()}</td></tr>}
+                                {holidayPay > 0 && <tr><td className="p-3 text-blue-600">Public Holiday Pay</td><td className="p-3 text-right text-blue-600">{holidayPay.toLocaleString()}</td></tr>}
+                                {weekOffPay > 0 && <tr><td className="p-3 text-blue-600">Friday/Sunday Work Pay</td><td className="p-3 text-right text-blue-600">{weekOffPay.toLocaleString()}</td></tr>}
+                                
+                                {deduction > 0 && <tr><td className="p-3 text-red-600">Absence Deduction ({absentDays} days)</td><td className="p-3 text-right text-red-600">-{deduction.toLocaleString(undefined, {maximumFractionDigits: 0})}</td></tr>}
+                            </tbody>
+                            <tfoot className="bg-gray-50 font-bold text-gray-900">
+                                <tr>
+                                    <td className="p-3 border-t">Net Salary</td>
+                                    <td className="p-3 text-right border-t text-lg">{netSalary.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="mt-12 flex justify-between items-end print:hidden">
+                    <button onClick={onClose} className="px-6 py-2 border rounded-lg hover:bg-gray-50">Close</button>
+                    <button onClick={() => window.print()} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2">
+                        <Printer className="w-4 h-4" /> Print Payslip
+                    </button>
+                </div>
+
+                <div className="hidden print:flex justify-between mt-24 pt-8 border-t border-gray-300 text-sm text-gray-500">
+                    <div>
+                        <p className="font-bold mb-8">Employee Signature</p>
+                        <div className="w-48 border-b border-gray-400"></div>
+                    </div>
+                    <div>
+                        <p className="font-bold mb-8">Manager Signature</p>
+                        <div className="w-48 border-b border-gray-400"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const RehireModal = ({ employee, onClose, onConfirm }: any) => {
@@ -1207,322 +1541,156 @@ const RehireModal = ({ employee, onClose, onConfirm }: any) => {
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6 animate-fade-in">
-                <div className="flex justify-between items-center mb-6"><h3 className="text-lg font-bold text-gray-900 flex items-center gap-2"><RefreshCcw className="w-5 h-5 text-green-600"/> Re-hire Employee</h3><button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600"/></button></div>
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <RefreshCcw className="w-5 h-5 text-green-600" /> Re-hire Employee
+                    </h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
+                </div>
+                
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
                     <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div><span className="block text-xs text-gray-500 uppercase font-bold">Name</span><span className="font-medium text-gray-900">{employee.name}</span></div>
-                        <div><span className="block text-xs text-gray-500 uppercase font-bold">Code</span><span className="font-mono text-gray-900">{employee.code}</span></div>
-                        <div className="col-span-2"><span className="block text-xs text-gray-500 uppercase font-bold">Designation</span><span className="text-gray-700">{employee.designation}</span></div>
+                        <div>
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Name</span>
+                            <span className="font-medium text-gray-900">{employee.name}</span>
+                        </div>
+                        <div>
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Code</span>
+                            <span className="font-mono text-gray-900">{employee.code}</span>
+                        </div>
+                        <div className="col-span-2">
+                            <span className="block text-xs text-gray-500 uppercase font-bold">Designation</span>
+                            <span className="text-gray-700">{employee.designation}</span>
+                        </div>
                     </div>
                 </div>
+
                 <div className="space-y-4">
-                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Re-joining Date</label><input type="date" className="w-full p-2 border border-gray-300 rounded-lg" value={date} onChange={e => setDate(e.target.value)} /></div>
-                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label><textarea className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Explain re-joining..." value={reason} onChange={e => setReason(e.target.value)} /></div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Re-joining Date</label>
+                        <input type="date" className="w-full p-2 border border-gray-300 rounded-lg" value={date} onChange={e => setDate(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
+                        <textarea className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Explain re-joining..." value={reason} onChange={e => setReason(e.target.value)}></textarea>
+                    </div>
                 </div>
+
                 <div className="flex justify-end gap-3 mt-8">
                     <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
                     <button onClick={() => onConfirm(employee.id, date, reason)} disabled={!reason.trim()} className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50">Confirm Re-hire</button>
                 </div>
             </div>
         </div>
-    )
-};
-
-const LeaveRequestModal = ({ employees, onClose, onSave }: any) => {
-    const [req, setReq] = useState<Partial<LeaveRequest>>({
-        type: AttendanceStatus.ANNUAL_LEAVE,
-        startDate: formatDateLocal(new Date()),
-        endDate: formatDateLocal(new Date()),
-        reason: ''
-    });
-    const handleSubmit = () => { if (!req.employeeId || !req.reason) return alert("Missing fields"); saveLeaveRequest(req as any); onSave(); }
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full">
-                <h3 className="font-bold mb-4">New Leave Request</h3>
-                <div className="space-y-3">
-                    <select className="w-full p-2 border rounded" onChange={e => setReq({...req, employeeId: e.target.value})}>
-                        <option value="">Select Employee</option>
-                        {employees.map((e: Employee) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
-                    <select className="w-full p-2 border rounded" value={req.type} onChange={e => setReq({...req, type: e.target.value as any})}>
-                        <option value={AttendanceStatus.ANNUAL_LEAVE}>Annual Leave</option>
-                        <option value={AttendanceStatus.SICK_LEAVE}>Sick Leave</option>
-                        <option value={AttendanceStatus.UNPAID_LEAVE}>Unpaid Leave</option>
-                        <option value={AttendanceStatus.EMERGENCY_LEAVE}>Emergency Leave</option>
-                    </select>
-                    <div className="grid grid-cols-2 gap-2">
-                        <input type="date" className="p-2 border rounded" value={req.startDate} onChange={e => setReq({...req, startDate: e.target.value})} />
-                        <input type="date" className="p-2 border rounded" value={req.endDate} onChange={e => setReq({...req, endDate: e.target.value})} />
-                    </div>
-                    <textarea className="w-full p-2 border rounded" placeholder="Reason" value={req.reason} onChange={e => setReq({...req, reason: e.target.value})} />
-                </div>
-                <div className="flex justify-end gap-2 mt-4"><button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button><button onClick={handleSubmit} className="px-4 py-2 bg-indigo-600 text-white rounded">Submit</button></div>
-            </div>
-        </div>
-    )
-};
-
-const HolidayManagementModal = ({ isOpen, onClose }: any) => {
-    const [holidays, setHolidays] = useState<PublicHoliday[]>(getPublicHolidays());
-    const [newH, setNewH] = useState({ date: '', name: '' });
-
-    if(!isOpen) return null;
-    const add = () => { if(newH.date && newH.name) { setHolidays(savePublicHoliday({ id: Date.now().toString(), ...newH })); setNewH({ date: '', name: '' }); } };
-    const del = (id: string) => setHolidays(deletePublicHoliday(id));
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-             <div className="bg-white p-6 rounded-lg max-w-md w-full">
-                 <h3 className="font-bold mb-4">Manage Public Holidays</h3>
-                 <div className="flex gap-2 mb-4">
-                     <input type="date" className="border p-2 rounded" value={newH.date} onChange={e => setNewH({...newH, date: e.target.value})} />
-                     <input type="text" className="border p-2 rounded flex-1" placeholder="Holiday Name" value={newH.name} onChange={e => setNewH({...newH, name: e.target.value})} />
-                     <button onClick={add} className="bg-indigo-600 text-white px-3 rounded">Add</button>
-                 </div>
-                 <ul className="space-y-2">{holidays.map(h => (<li key={h.id} className="flex justify-between bg-gray-50 p-2 rounded"><span>{h.date} - {h.name}</span><button onClick={() => del(h.id)} className="text-red-500"><Trash2 className="w-4 h-4"/></button></li>))}</ul>
-                 <button onClick={onClose} className="mt-4 w-full border p-2 rounded text-gray-600">Close</button>
-             </div>
-        </div>
-    )
-};
-
-const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
-    const [sourceDate, setSourceDate] = useState(formatDateLocal(new Date()));
-    const [targetDate, setTargetDate] = useState(formatDateLocal(new Date(Date.now() + 86400000)));
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
-                        <Copy className="w-5 h-5 text-orange-500" /> Copy Attendance
-                    </h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
-                </div>
-
-                <div className="space-y-4 mb-6">
-                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100 text-sm text-orange-800">
-                        <p className="font-bold mb-1">Warning:</p>
-                        This will copy all attendance status, hours, and notes from the source date to the target date for all employees. Existing records on the target date will be overwritten.
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Copy From</label>
-                            <input
-                                type="date"
-                                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                value={sourceDate}
-                                onChange={(e) => setSourceDate(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Copy To</label>
-                            <input
-                                type="date"
-                                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                value={targetDate}
-                                onChange={(e) => setTargetDate(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={() => onCopy(sourceDate, targetDate)} 
-                        className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700"
-                    >
-                        Confirm Copy
-                    </button>
-                </div>
-            </div>
-        </div>
     );
 };
 
-const PayslipModal = ({ employee, month, year, onClose }: any) => {
-    const start = formatDateLocal(new Date(year, month, 1));
-    const end = formatDateLocal(new Date(year, month + 1, 0));
-    const recs = getAttendanceRange(start, end).filter(r => r.employeeId === employee.id);
-    const { basic, housing, transport, other } = employee.salary;
-    const gross = basic + housing + transport + other;
-    const absent = recs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
-    const deduction = Math.round((gross / 30) * absent);
-    const { overtimePay, holidayPay, weekOffPay, totalOTHours } = calculateAdditionalEarnings(recs, employee.team);
-    const additions = overtimePay + holidayPay + weekOffPay;
-    const net = gross - deduction + additions;
-    const [scale, setScale] = useState(1);
+// --- Main App Component ---
 
-    return (
-        <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col h-screen w-screen print:bg-white print:relative print:h-auto print:w-auto">
-             <div className="bg-gray-900 text-white p-4 flex justify-between items-center print:hidden z-50">
-                 <h2 className="font-bold">Payslip Preview</h2>
-                 <div className="flex gap-4 items-center">
-                     <div className="flex bg-gray-800 rounded p-1"><button onClick={() => setScale(Math.max(0.5, scale - 0.1))} className="p-2 hover:bg-gray-700 rounded"><ZoomOut className="w-4 h-4"/></button><span className="px-3 py-2 text-sm min-w-[60px] text-center">{Math.round(scale * 100)}%</span><button onClick={() => setScale(Math.min(2, scale + 0.1))} className="p-2 hover:bg-gray-700 rounded"><ZoomIn className="w-4 h-4"/></button><button onClick={() => setScale(1)} className="p-2 hover:bg-gray-700 rounded ml-2"><RotateCcw className="w-4 h-4"/></button></div>
-                     <button onClick={() => window.print()} className="bg-indigo-600 px-4 py-2 rounded hover:bg-indigo-700 flex items-center gap-2"><Printer className="w-4 h-4"/> Print</button>
-                     <button onClick={onClose} className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600">Close</button>
-                 </div>
-             </div>
-             <div className="flex-1 overflow-auto bg-gray-500 flex justify-center p-8 print:p-0 print:overflow-visible print:bg-white">
-                 <div className="bg-white shadow-2xl w-[210mm] min-h-[297mm] p-12 origin-top transition-transform duration-200 print:transform-none print:shadow-none print:w-full print:h-auto print:m-0" style={{ transform: `scale(${scale})` }}>
-                     <div className="text-center mb-8 border-b pb-4"><h1 className="text-2xl font-bold uppercase text-gray-900">{employee.company}</h1><p className="text-sm text-gray-500">Payslip for {new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</p></div>
-                     <div className="grid grid-cols-2 gap-8 mb-8">
-                         <div><p className="text-xs text-gray-500 uppercase">Employee Name</p><p className="font-bold">{employee.name}</p><p className="text-xs text-gray-500 uppercase mt-2">Designation</p><p className="font-bold">{employee.designation}</p></div>
-                         <div className="text-right"><p className="text-xs text-gray-500 uppercase">Employee Code</p><p className="font-bold">{employee.code}</p><p className="text-xs text-gray-500 uppercase mt-2">Bank Account</p><p className="font-bold">{employee.iban || 'Cash'}</p></div>
-                     </div>
-                     <div className="border rounded-lg overflow-hidden mb-6">
-                         <table className="w-full text-sm">
-                             <thead className="bg-gray-100 border-b"><tr><th className="p-3 text-left">Earnings</th><th className="p-3 text-right">Amount (AED)</th><th className="p-3 text-left border-l">Deductions</th><th className="p-3 text-right">Amount (AED)</th></tr></thead>
-                             <tbody>
-                                 <tr><td className="p-2">Basic Salary</td><td className="p-2 text-right">{basic.toLocaleString()}</td><td className="p-2 border-l">Absent Deduction ({absent} days)</td><td className="p-2 text-right text-red-600">{deduction.toLocaleString()}</td></tr>
-                                 <tr><td className="p-2">Housing Allowance</td><td className="p-2 text-right">{housing.toLocaleString()}</td><td className="p-2 border-l"></td><td className="p-2 text-right"></td></tr>
-                                 <tr><td className="p-2">Transport Allowance</td><td className="p-2 text-right">{transport.toLocaleString()}</td><td className="p-2 border-l"></td><td className="p-2 text-right"></td></tr>
-                                 <tr><td className="p-2">Other Allowance</td><td className="p-2 text-right">{other.toLocaleString()}</td><td className="p-2 border-l"></td><td className="p-2 text-right"></td></tr>
-                                 {additions > 0 && (<tr><td className="p-2">Overtime & Additions <span className="block text-[10px] text-gray-500">(OT: {totalOTHours} hrs, Holidays: {holidayPay > 0 ? 'Yes' : 'No'}, W/O: {weekOffPay > 0 ? 'Yes' : 'No'})</span></td><td className="p-2 text-right text-blue-600">{additions.toLocaleString()}</td><td className="p-2 border-l"></td><td className="p-2 text-right"></td></tr>)}
-                             </tbody>
-                             <tfoot className="bg-gray-50 font-bold border-t"><tr><td className="p-3">Total Earnings</td><td className="p-3 text-right">{(gross + additions).toLocaleString()}</td><td className="p-3 border-l">Total Deductions</td><td className="p-3 text-right text-red-600">{deduction.toLocaleString()}</td></tr></tfoot>
-                         </table>
-                     </div>
-                     <div className="flex justify-between items-center p-4 bg-indigo-50 rounded-lg mb-8"><span className="text-lg font-bold text-indigo-900">Net Salary Payable</span><span className="text-2xl font-bold text-indigo-600">AED {net.toLocaleString()}</span></div>
-                     <div className="flex justify-between mt-12 text-xs text-gray-400 print:mt-24"><div className="text-center w-32 border-t pt-2">Employee Signature</div><div className="text-center w-32 border-t pt-2">Manager Signature</div></div>
-                 </div>
-             </div>
-        </div>
-    )
-}
-
-const ReportsView = ({ employees, attendance }: { employees: Employee[], attendance: AttendanceRecord[] }) => {
-    const [startDate, setStartDate] = useState(formatDateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
-    const [endDate, setEndDate] = useState(formatDateLocal(new Date()));
-    const [filteredData, setFilteredData] = useState<any[]>([]);
-    const [totals, setTotals] = useState({ hours: 0, cost: 0, ot: 0, absent: 0 });
-
-    useEffect(() => {
-        const relevantRecords = attendance.filter(r => r.date >= startDate && r.date <= endDate);
-        const reportData = employees.map(emp => {
-            const empRecs = relevantRecords.filter(r => r.employeeId === emp.id);
-            const present = empRecs.filter(r => r.status === AttendanceStatus.PRESENT).length;
-            const absent = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
-            const leaves = empRecs.filter(r => r.status === AttendanceStatus.SICK_LEAVE || r.status === AttendanceStatus.ANNUAL_LEAVE).length;
-            const otHours = empRecs.reduce((sum, r) => sum + (r.overtimeHours || 0), 0);
-            const dailySalary = (emp.salary.basic + emp.salary.housing + emp.salary.transport + emp.salary.other) / 30;
-            const otCost = emp.team === 'Office Staff' ? 0 : otHours * 5;
-            const salaryCost = Math.round(dailySalary * (present + leaves));
-            const totalCost = salaryCost + otCost;
-            return { name: emp.name, company: emp.company, team: emp.team, present, absent, leaves, otHours, totalCost };
-        }).filter(d => d.present > 0 || d.absent > 0 || d.leaves > 0);
-        setFilteredData(reportData);
-        setTotals({
-            hours: reportData.reduce((sum, d) => sum + (d.present * 8), 0),
-            cost: reportData.reduce((sum, d) => sum + d.totalCost, 0),
-            ot: reportData.reduce((sum, d) => sum + d.otHours, 0),
-            absent: reportData.reduce((sum, d) => sum + d.absent, 0)
-        });
-    }, [startDate, endDate, employees, attendance]);
-
-    return (
-        <div className="w-full space-y-6 p-6">
-            <div className="flex justify-between items-end print:hidden">
-                <div className="flex gap-4">
-                    <div><label className="block text-xs font-bold text-gray-500 mb-1">From</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border p-2 rounded bg-white" /></div>
-                    <div><label className="block text-xs font-bold text-gray-500 mb-1">To</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border p-2 rounded bg-white" /></div>
-                </div>
-                <button onClick={() => window.print()} className="bg-gray-900 text-white px-4 py-2 rounded flex items-center gap-2"><Printer className="w-4 h-4"/> Print Report</button>
-            </div>
-            <div className="bg-white p-8 rounded-xl shadow-sm border print:shadow-none print:border-none">
-                <div className="text-center mb-8"><h2 className="text-2xl font-bold text-gray-900">Workforce Analytics Report</h2><p className="text-gray-500 text-sm">Period: {startDate} to {endDate}</p></div>
-                <div className="grid grid-cols-4 gap-4 mb-8">
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-100"><p className="text-xs text-blue-600 uppercase font-bold">Est. Cost</p><p className="text-2xl font-bold text-blue-900">AED {totals.cost.toLocaleString()}</p></div>
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-100"><p className="text-xs text-green-600 uppercase font-bold">Total OT Hours</p><p className="text-2xl font-bold text-green-900">{totals.ot}</p></div>
-                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100"><p className="text-xs text-orange-600 uppercase font-bold">Absent Days</p><p className="text-2xl font-bold text-orange-900">{totals.absent}</p></div>
-                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200"><p className="text-xs text-gray-600 uppercase font-bold">Employees Active</p><p className="text-2xl font-bold text-gray-900">{filteredData.length}</p></div>
-                </div>
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 font-bold uppercase border-b"><tr><th className="p-3">Employee</th><th className="p-3">Company</th><th className="p-3 text-center">Present</th><th className="p-3 text-center">Absent</th><th className="p-3 text-center">OT (Hrs)</th><th className="p-3 text-right">Est. Cost</th></tr></thead>
-                    <tbody className="divide-y divide-gray-100">{filteredData.map((row, idx) => (<tr key={idx}><td className="p-3 font-medium">{row.name}</td><td className="p-3 text-gray-500 text-xs">{row.company}</td><td className="p-3 text-center">{row.present}</td><td className="p-3 text-center text-red-500">{row.absent}</td><td className="p-3 text-center text-blue-600 font-bold">{row.otHours}</td><td className="p-3 text-right font-mono">AED {row.totalCost.toLocaleString()}</td></tr>))}</tbody>
-                    <tfoot className="bg-gray-50 font-bold border-t"><tr><td className="p-3" colSpan={4}>TOTAL</td><td className="p-3 text-center text-blue-600">{totals.ot}</td><td className="p-3 text-right">AED {totals.cost.toLocaleString()}</td></tr></tfoot>
-                </table>
-            </div>
-        </div>
-    )
-}
-
-function App() {
+const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<SystemUser | null>(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [companies, setCompanies] = useState<string[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [companies, setCompanies] = useState<string[]>([]);
   
-  const [selectedCompany, setSelectedCompany] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('Active');
-  const [selectedTeam, setSelectedTeam] = useState('All');
-
+  // Modals State
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showOffboarding, setShowOffboarding] = useState<Employee | null>(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showHolidays, setShowHolidays] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showEmpImport, setShowEmpImport] = useState(false);
-  const [showAttendanceModal, setShowAttendanceModal] = useState<{isOpen: boolean; employee?: Employee; date?: Date; record?: AttendanceRecord;}>({ isOpen: false });
-  const [showPreview, setShowPreview] = useState<string | null>(null);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [showManageCompanies, setShowManageCompanies] = useState(false);
+  const [showOffboarding, setShowOffboarding] = useState<Employee | null>(null);
+  const [showAttendanceModal, setShowAttendanceModal] = useState<{isOpen: boolean, employee?: Employee, date?: Date}>({ isOpen: false });
   const [showPayslip, setShowPayslip] = useState<Employee | null>(null);
-  const [showRehire, setShowRehire] = useState<Employee | null>(null);
-  const [showExEmployeeDetails, setShowExEmployeeDetails] = useState<Employee | null>(null);
-  const [showHolidays, setShowHolidays] = useState(false);
+  const [showPreview, setShowPreview] = useState<string | null>(null);
+  const [showManageCompanies, setShowManageCompanies] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
+  const [showRehire, setShowRehire] = useState<Employee | null>(null);
+  const [showExEmployeeDetails, setShowExEmployeeDetails] = useState<Employee | null>(null);
+  const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
+  
+  // Filters
+  const [selectedCompany, setSelectedCompany] = useState('All Companies');
+  const [selectedStatus, setSelectedStatus] = useState('Active');
+  const [selectedTeam, setSelectedTeam] = useState('All Teams');
 
-  useEffect(() => {
-    if (currentUser) {
-        setEmployees(getEmployees());
-        setLeaveRequests(getLeaveRequests());
-        setCompanies(getCompanies());
-        loadAttendanceForMonth(currentDate);
-    }
-  }, [currentUser, currentDate]);
+  // Date State
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  const loadAttendanceForMonth = (date: Date) => {
-    const y = date.getFullYear();
-    const m = date.getMonth();
-    const start = formatDateLocal(new Date(y, m, 1));
-    const end = formatDateLocal(new Date(y, m + 1, 0));
+  const handleRefresh = () => {
+    const allEmps = getEmployees();
+    setEmployees(allEmps);
+    setCompanies(getCompanies());
+    setLeaveRequests(getLeaveRequests());
+    const start = formatDateLocal(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+    const end = formatDateLocal(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
     setAttendance(getAttendanceRange(start, end));
   };
 
+  useEffect(() => {
+    if (currentUser) handleRefresh();
+  }, [currentUser, currentDate]);
+
+  // --- Dashboard Filter Handlers ---
+  const handleDashboardFilter = (filterType: 'active' | 'internal' | 'external' | 'office' | 'company', value?: string) => {
+      setActiveTab('directory');
+      if (filterType === 'active') {
+          setSelectedStatus('Active');
+          setSelectedTeam('All Teams');
+          setSelectedCompany('All Companies');
+      } else if (filterType === 'internal') {
+          setSelectedTeam('Internal');
+          setSelectedStatus('Active');
+      } else if (filterType === 'external') {
+          setSelectedTeam('External');
+          setSelectedStatus('Active');
+      } else if (filterType === 'office') {
+          setSelectedTeam('Office');
+          setSelectedStatus('Active');
+      } else if (filterType === 'company' && value) {
+          setSelectedCompany(value);
+          setSelectedStatus('Active');
+          setSelectedTeam('All Teams');
+      }
+  };
+
+  const filteredEmployees = employees.filter(e => {
+      if (activeTab === 'directory' && selectedStatus !== 'All') return e.status === selectedStatus;
+      if (activeTab === 'ex-employees') return e.status === 'Inactive';
+      if (activeTab === 'timesheet') return e.active;
+      return true;
+  }).filter(e => {
+      if (selectedCompany !== 'All Companies' && e.company !== selectedCompany) return false;
+      if (selectedTeam !== 'All Teams' && e.team !== (selectedTeam === 'Internal' ? 'Internal Team' : selectedTeam === 'External' ? 'External Team' : 'Office Staff')) return false;
+      return true;
+  });
+
+  const handleLogin = (user: SystemUser) => setCurrentUser(user);
+  const handleLogout = () => { setCurrentUser(null); setActiveTab('dashboard'); };
   const handleMonthChange = (delta: number) => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1);
-    setCurrentDate(newDate);
+      const newDate = new Date(currentDate);
+      newDate.setMonth(newDate.getMonth() + delta);
+      setCurrentDate(newDate);
   };
 
-  const handleRefresh = () => {
-    setEmployees(getEmployees());
-    setLeaveRequests(getLeaveRequests());
-    setCompanies(getCompanies());
-    loadAttendanceForMonth(currentDate);
+  const handleAttendanceClick = (emp: Employee, day: Date) => setShowAttendanceModal({ isOpen: true, employee: emp, date: day });
+  
+  const handleAttendanceSave = (status: any, ot: any, attachment: any, note: any) => {
+      if (showAttendanceModal.employee && showAttendanceModal.date) {
+          const dateStr = formatDateLocal(showAttendanceModal.date);
+          logAttendance(showAttendanceModal.employee.id, status, dateStr, ot, attachment, currentUser?.username, note);
+          setShowAttendanceModal({ isOpen: false });
+          handleRefresh();
+      }
   };
 
-  const handleCopyAttendance = (source: string, target: string) => {
-      const count = copyDayAttendance(source, target, currentUser?.username || 'System');
-      alert(`Copied ${count} records from ${source} to ${target}`);
-      setShowCopyModal(false);
-      handleRefresh();
-  };
-
-  const handleDeleteAttendance = () => {
-      if (showAttendanceModal.employee && showAttendanceModal.date && showAttendanceModal.record) {
-          if (confirm("Are you sure you want to delete this attendance record? This will clear the status.")) {
+  const handleAttendanceDelete = () => {
+      if (showAttendanceModal.employee && showAttendanceModal.date) {
+          if (window.confirm("Are you sure you want to delete this attendance record?")) {
               const dateStr = formatDateLocal(showAttendanceModal.date);
               deleteAttendanceRecord(showAttendanceModal.employee.id, dateStr);
               setShowAttendanceModal({ isOpen: false });
@@ -1531,334 +1699,549 @@ function App() {
       }
   };
 
-  const handleDashboardFilter = (filterType: 'team' | 'company' | 'status', value: string) => {
-      setActiveTab('directory');
-      setSelectedTeam('All');
-      setSelectedCompany('All');
-      setSelectedStatus('All');
-      if (filterType === 'team') setSelectedTeam(value);
-      if (filterType === 'company') setSelectedCompany(value);
-      if (filterType === 'status') setSelectedStatus(value);
+  const handleCopyAttendance = (source: string, target: string) => {
+      const count = copyDayAttendance(source, target, currentUser?.username || 'Admin');
+      alert(`Copied ${count} records.`);
+      setShowCopyModal(false);
+      handleRefresh();
   };
 
-  const filteredEmployees = employees.filter(e => {
-    if (selectedCompany !== 'All' && e.company !== selectedCompany) return false;
-    if (selectedStatus !== 'All' && e.status !== selectedStatus) return false;
-    if (selectedTeam !== 'All' && e.team !== selectedTeam) return false;
-    const viewMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const joining = new Date(e.joiningDate);
-    if (joining > new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)) return false;
-    if (e.status === 'Inactive' && e.offboardingDetails?.exitDate) {
-        const exitDate = new Date(e.offboardingDetails.exitDate);
-        if (exitDate < viewMonthStart) return false;
-    }
-    return true;
-  });
+  const handleLeaveAction = (id: string, status: LeaveStatus) => {
+      updateLeaveRequestStatus(id, status);
+      handleRefresh();
+  };
 
-  const monthDays = getMonthDays(currentDate);
-  if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
+  const handleEditSave = (data: Employee) => {
+      saveEmployee(data);
+      setEditEmployee(null);
+      handleRefresh();
+  };
 
-  const activeEmployees = employees.filter(e => e.active);
-  const companyStats = activeEmployees.reduce((acc, curr) => { acc[curr.company] = (acc[curr.company] || 0) + 1; return acc; }, {} as Record<string, number>);
-  const teamStats = activeEmployees.reduce((acc, curr) => { acc[curr.team] = (acc[curr.team] || 0) + 1; return acc; }, {} as Record<string, number>);
+  if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
 
-  const navTabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, visible: currentUser.permissions.canViewDashboard },
-    { id: 'directory', label: 'Staff Directory', icon: Users, visible: currentUser.permissions.canViewDirectory },
-    { id: 'offboarded', label: 'Ex-Employees', icon: History, visible: currentUser.permissions.canViewDirectory },
-    { id: 'timesheet', label: 'Monthly Timesheet', icon: Calendar, visible: currentUser.permissions.canViewTimesheet },
-    { id: 'leave', label: 'Leave Management', icon: FileText, visible: currentUser.permissions.canManageLeaves },
-    { id: 'payroll', label: 'Payroll Register', icon: DollarSign, visible: currentUser.permissions.canViewPayroll },
-    { id: 'reports', label: 'Reports', icon: BarChart3, visible: currentUser.permissions.canViewReports },
-    { id: 'about', label: 'About', icon: Info, visible: true },
-  ].filter(t => t.visible);
-
-  if (!navTabs.find(t => t.id === activeTab) && navTabs.length > 0) setActiveTab(navTabs[0].id);
+  const daysInMonth = getMonthDays(currentDate);
 
   return (
-    <div className="min-h-screen flex flex-col print:bg-white">
-      <header className={`bg-white shadow-sm z-10 print:hidden`}>
-        <div className="w-full px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-2 rounded-lg"><Building2 className="w-6 h-6 text-white" /></div>
-            <div><h1 className="text-xl font-bold text-gray-900">ShiftSync</h1></div>
-          </div>
-          <div className="flex items-center gap-4">
-             <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)} className="text-sm border rounded-lg px-3 py-2 bg-gray-50 max-w-[200px]"><option value="All">All Companies</option>{companies.map(c => <option key={c} value={c}>{c}</option>)}</select>
-             {currentUser.permissions.canManageSettings && (<button onClick={() => setShowManageCompanies(true)} className="p-2 text-gray-500 hover:bg-gray-100 rounded"><Settings className="w-4 h-4"/></button>)}
-             <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className="text-sm border rounded-lg px-3 py-2 bg-gray-50"><option value="All">All Status</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
-             <select value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)} className="text-sm border rounded-lg px-3 py-2 bg-gray-50"><option value="All">All Teams</option><option value="Internal Team">Internal Team</option><option value="External Team">External Team</option><option value="Office Staff">Office Staff</option></select>
-             <div className="h-6 w-px bg-gray-300 mx-2"></div>
-             <div className="flex items-center gap-2"><div className="text-right hidden md:block"><p className="text-sm font-bold text-gray-900">{currentUser.name}</p><p className="text-xs text-gray-500">{currentUser.role}</p></div><button onClick={() => setCurrentUser(null)} className="p-2 text-gray-500 hover:text-red-600" title="Logout"><LogOut className="w-5 h-5"/></button></div>
-          </div>
-        </div>
-      </header>
-      <nav className="bg-white border-b print:hidden">
-        <div className="w-full px-6 flex items-center overflow-x-auto">
-            <div className="flex gap-6">{navTabs.map(tab => (<button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 py-4 px-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600 font-medium' : 'border-transparent text-gray-500 hover:text-gray-700'}`}><tab.icon className="w-4 h-4" />{tab.label}</button>))}</div>
-        </div>
-      </nav>
-      <main className={`flex-1 max-w-full mx-auto px-6 py-6 w-full overflow-hidden ${showPayslip ? 'print:hidden' : ''}`}>
-        {activeTab === 'dashboard' && (
-             <div className="w-full space-y-6">
-                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
-                    {currentUser.permissions.canManageUsers && (<button onClick={() => setShowUserManagement(true)} className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-gray-800"><Shield className="w-4 h-4"/> User Management</button>)}
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <button onClick={() => handleDashboardFilter('status', 'Active')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left"><div><p className="text-gray-500 text-sm">Total Active Staff</p><h3 className="text-3xl font-bold text-indigo-600 mt-1">{employees.filter(e => e.active).length}</h3></div><div className="p-3 bg-indigo-50 rounded-lg"><Users className="w-6 h-6 text-indigo-600"/></div></button>
-                    <button onClick={() => handleDashboardFilter('team', 'Internal Team')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left"><div><p className="text-gray-500 text-sm">Internal Team</p><h3 className="text-3xl font-bold text-green-600 mt-1">{teamStats['Internal Team'] || 0}</h3></div><div className="p-3 bg-green-50 rounded-lg"><Users className="w-6 h-6 text-green-600"/></div></button>
-                    <button onClick={() => handleDashboardFilter('team', 'External Team')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left"><div><p className="text-gray-500 text-sm">External Team</p><h3 className="text-3xl font-bold text-orange-600 mt-1">{teamStats['External Team'] || 0}</h3></div><div className="p-3 bg-orange-50 rounded-lg"><Users className="w-6 h-6 text-orange-600"/></div></button>
-                    <button onClick={() => handleDashboardFilter('team', 'Office Staff')} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-all text-left"><div><p className="text-gray-500 text-sm">Office Staff</p><h3 className="text-3xl font-bold text-blue-600 mt-1">{teamStats['Office Staff'] || 0}</h3></div><div className="p-3 bg-blue-50 rounded-lg"><Briefcase className="w-6 h-6 text-blue-600"/></div></button>
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Building2 className="w-5 h-5"/> Staff by Company</h3>
-                         <div className="space-y-3">{Object.entries(companyStats).map(([company, count]) => (<button key={company} onClick={() => handleDashboardFilter('company', company)} className="w-full flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"><span className="text-sm font-medium text-gray-700 truncate max-w-[300px]" title={company}>{company}</span><span className="bg-gray-200 text-gray-800 text-xs font-bold px-2 py-1 rounded-full">{count}</span></button>))}</div>
-                     </div>
-                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Lock className="w-5 h-5"/> My Access</h3>
-                         <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-xl text-white">
-                             <div className="flex items-center gap-4 mb-4"><div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-xl font-bold">{currentUser.name.charAt(0)}</div><div><h4 className="text-lg font-bold">{currentUser.name}</h4><p className="text-sm text-gray-300">@{currentUser.username}</p></div></div>
-                             <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4 text-xs text-gray-400">{Object.entries(currentUser.permissions).filter(([_, v]) => v).map(([k]) => (<div key={k} className="flex items-center gap-1"><CheckCircle className="w-3 h-3 text-green-400" /> {k.replace('can', '')}</div>))}</div>
-                         </div>
-                     </div>
-                 </div>
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans w-full">
+       <header className="bg-white shadow px-6 py-4 flex justify-between items-center sticky top-0 z-10 w-full">
+         <div className="flex items-center gap-4">
+             <div className="bg-indigo-600 p-2 rounded text-white"><Building2 className="w-6 h-6" /></div>
+             <div>
+                 <h1 className="text-xl font-bold text-gray-900">ShiftSync</h1>
              </div>
-        )}
-
-        {activeTab === 'directory' && (
-            <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-bold text-gray-800">Employee Directory</h2>
-                    {currentUser.permissions.canManageEmployees && (
-                        <div className="flex gap-3"><button onClick={() => setShowEmpImport(true)} className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded text-sm font-medium"><Upload className="w-4 h-4"/> Import CSV/Excel</button><button onClick={() => setShowOnboarding(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2"><UserPlus className="w-4 h-4"/> Onboard Employee</button></div>
-                    )}
-                </div>
-                <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-700 uppercase font-bold border-b"><tr><th className="p-4 whitespace-nowrap">Code</th><th className="p-4 whitespace-nowrap">Name</th><th className="p-4 whitespace-nowrap">Company</th><th className="p-4 whitespace-nowrap">Team</th><th className="p-4 whitespace-nowrap">Designation</th><th className="p-4 whitespace-nowrap">Status</th><th className="p-4 whitespace-nowrap">Leave Bal</th><th className="p-4 whitespace-nowrap">Emirates ID</th><th className="p-4 whitespace-nowrap">Passport Exp</th><th className="p-4 whitespace-nowrap">Labour Card Exp</th><th className="p-4 whitespace-nowrap text-right sticky right-0 bg-gray-50 z-10 shadow-l border-l">Actions</th></tr></thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredEmployees.map(emp => (
-                                    <tr key={emp.id} className="hover:bg-gray-50 transition-colors group">
-                                        <td className="p-4 font-mono text-gray-500">{emp.code}</td>
-                                        <td className="p-4 font-medium text-gray-900">{emp.name}</td>
-                                        <td className="p-4 text-gray-600 max-w-xs truncate" title={emp.company}>{emp.company}</td>
-                                        <td className="p-4 text-gray-600">{emp.team}</td>
-                                        <td className="p-4 text-gray-500">{emp.designation}</td>
-                                        <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${emp.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{emp.status}</span></td>
-                                        <td className="p-4 font-bold text-indigo-600">{emp.leaveBalance}</td>
-                                        <td className="p-4 font-mono text-xs">{emp.documents?.emiratesId || '-'} <br/> <span className={getDateColor(emp.documents?.emiratesIdExpiry)}>{emp.documents?.emiratesIdExpiry}</span></td>
-                                        <td className="p-4 font-mono text-xs"><span className={getDateColor(emp.documents?.passportExpiry, 'passport')}>{emp.documents?.passportExpiry || '-'}</span></td>
-                                        <td className="p-4 font-mono text-xs"><span className={getDateColor(emp.documents?.labourCardExpiry)}>{emp.documents?.labourCardExpiry || '-'}</span></td>
-                                        <td className="p-4 text-right sticky right-0 bg-white group-hover:bg-gray-50 z-10 shadow-l border-l">
-                                            {currentUser.permissions.canManageEmployees && (
-                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => setEditingEmployee(emp)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Edit"><Edit className="w-4 h-4"/></button>
-                                                    {emp.status === 'Active' ? (<button onClick={() => setShowOffboarding(emp)} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Offboard"><UserMinus className="w-4 h-4"/></button>) : (<button onClick={() => setShowRehire(emp)} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Re-hire"><UserCheck className="w-4 h-4"/></button>)}
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+         </div>
+         <div className="flex items-center gap-4">
+            <div className="flex gap-2">
+                <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5" value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}>
+                    <option>All Companies</option>
+                    {companies.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <button onClick={() => setShowManageCompanies(true)} className="p-1.5 text-gray-400 hover:text-gray-600"><Settings className="w-4 h-4" /></button>
+                {activeTab === 'directory' && (
+                    <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5" value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="All">All</option>
+                    </select>
+                )}
+                <select className="bg-gray-100 border-none text-sm rounded px-3 py-1.5" value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)}>
+                    <option>All Teams</option>
+                    <option value="Internal">Internal</option>
+                    <option value="External">External</option>
+                    <option value="Office">Office</option>
+                </select>
             </div>
-        )}
-
-        {activeTab === 'offboarded' && (
-            <div className="space-y-4">
-                <h2 className="text-xl font-bold text-gray-800">Offboarded Employee History</h2>
-                <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 text-gray-700 uppercase font-bold border-b"><tr><th className="p-4">Code</th><th className="p-4">Name</th><th className="p-4">Company</th><th className="p-4">Designation</th><th className="p-4">Exit Date</th><th className="p-4">Type</th><th className="p-4">Exit Reason</th><th className="p-4 text-right">Actions</th></tr></thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {employees.filter(e => !e.active).map(emp => (
-                                <tr key={emp.id} className="hover:bg-gray-50">
-                                    <td className="p-4 font-mono text-gray-500">{emp.code}</td><td className="p-4 font-medium">{emp.name}</td><td className="p-4 text-gray-500">{emp.company}</td><td className="p-4 text-gray-500">{emp.designation}</td><td className="p-4 font-mono">{emp.offboardingDetails?.exitDate || '-'}</td>
-                                    <td className="p-4"><span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">{emp.offboardingDetails?.type || 'Inactive'}</span></td>
-                                    <td className="p-4 text-gray-500 max-w-xs truncate" title={emp.offboardingDetails?.reason}>{emp.offboardingDetails?.reason || '-'}</td>
-                                    <td className="p-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button onClick={() => setShowExEmployeeDetails(emp)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="View Details"><Eye className="w-4 h-4"/></button>
-                                            {currentUser.permissions.canManageEmployees && (<button onClick={() => setShowRehire(emp)} className="bg-green-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-green-700 flex items-center gap-1"><RefreshCcw className="w-3 h-3"/> Re-join</button>)}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {employees.filter(e => !e.active).length === 0 && (<tr><td colSpan={8} className="p-8 text-center text-gray-400">No offboarded employees found.</td></tr>)}
-                        </tbody>
-                    </table>
-                </div>
+            <div className="text-right">
+                <div className="text-sm font-bold">{currentUser.name}</div>
+                <div className="text-xs text-gray-500">{currentUser.role}</div>
             </div>
-        )}
+            <button onClick={handleLogout} className="text-gray-400 hover:text-red-600"><LogOut className="w-5 h-5" /></button>
+         </div>
+       </header>
 
-        {activeTab === 'timesheet' && (
-            <div className="space-y-4 h-full flex flex-col">
-                <div className="flex flex-wrap justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                            <button onClick={() => handleMonthChange(-1)} className="p-2 hover:bg-white rounded-md shadow-sm transition-all"><ChevronLeft className="w-4 h-4"/></button>
-                            <span className="px-4 font-bold text-gray-700 w-32 text-center">{currentDate.toLocaleString('default', { month: 'short' })} '{currentDate.getFullYear().toString().substr(2)}</span>
-                            <button onClick={() => handleMonthChange(1)} className="p-2 hover:bg-white rounded-md shadow-sm transition-all"><ChevronRight className="w-4 h-4"/></button>
-                        </div>
-                        {currentUser.permissions.canManageSettings && (<button onClick={() => setShowHolidays(true)} className="text-xs font-medium text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200 flex items-center gap-1"><Calendar className="w-3 h-3"/> Manage Holidays</button>)}
-                        {currentUser.permissions.canManageAttendance && (<button onClick={() => setShowCopyModal(true)} className="text-xs font-medium text-orange-600 hover:bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 flex items-center gap-1"><Copy className="w-3 h-3"/> Copy Attendance</button>)}
-                    </div>
-                    <div className="flex items-center gap-2">
-                         <div className="flex flex-wrap gap-1 max-w-xl justify-end">{Object.values(ATTENDANCE_LEGEND).map((l) => (<span key={l.code} className={`text-[10px] px-2 py-1 rounded ${l.color} border border-black/5`}>{l.code} - {l.label}</span>))}</div>
-                         {currentUser.permissions.canManageAttendance && (<><div className="h-8 w-px bg-gray-300 mx-2"></div><button onClick={() => setShowImport(true)} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Import CSV/Excel"><FileSpreadsheet className="w-5 h-5"/></button><button onClick={exportToCSV} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Export CSV"><Download className="w-5 h-5"/></button></>)}
-                    </div>
-                </div>
-                <div className="flex-1 bg-white rounded-xl shadow border border-gray-200 overflow-hidden flex flex-col">
-                    <div className="overflow-auto flex-1">
-                        <table className="w-full text-xs border-collapse">
-                            <thead className="bg-gray-50 text-gray-700 font-bold sticky top-0 z-10">
-                                <tr>
-                                    <th className="p-2 border-b border-r w-10 bg-gray-50 sticky left-0 z-20">#</th>
-                                    <th className="p-2 border-b border-r w-48 text-left bg-gray-50 sticky left-10 z-20">Employee</th>
-                                    <th className="p-2 border-b border-r w-16 text-center bg-gray-50">Leave Bal</th>
-                                    <th className="p-2 border-b border-r w-16 text-center bg-blue-50 text-blue-700">OT</th>
-                                    {monthDays.map(d => (<th key={d.getDate()} className={`p-1 border-b min-w-[32px] text-center ${d.getDay() === 0 ? 'bg-gray-100 text-red-500' : ''}`}><div className="flex flex-col items-center"><span>{d.getDate()}</span><span className="text-[9px] opacity-50">{d.toLocaleString('default', {weekday: 'narrow'})}</span></div></th>))}
-                                    <th className="p-2 border-b border-l bg-gray-50">Summary</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {filteredEmployees.map((emp, idx) => {
-                                    const empRecs = attendance.filter(r => r.employeeId === emp.id);
-                                    const present = empRecs.filter(r => r.status === AttendanceStatus.PRESENT).length;
-                                    const absent = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
-                                    const totalOT = empRecs.reduce((acc, curr) => acc + (curr.overtimeHours || 0), 0);
-                                    const totalHours = empRecs.reduce((acc, curr) => acc + (curr.hoursWorked || 0), 0);
+       <div className="bg-white border-b px-6 flex gap-8 overflow-x-auto w-full">
+           {[
+               { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
+               { id: 'directory', icon: Users, label: 'Staff Directory' },
+               { id: 'ex-employees', icon: History, label: 'Ex-Employees' },
+               { id: 'timesheet', icon: Calendar, label: 'Monthly Timesheet' },
+               { id: 'leave', icon: FileText, label: 'Leave Management' },
+               { id: 'payroll', icon: DollarSign, label: 'Payroll Register' },
+               { id: 'reports', icon: BarChart3, label: 'Reports' },
+               { id: 'about', icon: AlertCircle, label: 'About' }
+           ].map(tab => (
+               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                   <tab.icon className="w-4 h-4" /> {tab.label}
+               </button>
+           ))}
+       </div>
 
-                                    return (
-                                        <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="p-2 border-r text-center text-gray-400 sticky left-0 bg-white">{idx + 1}</td>
-                                            <td className="p-2 border-r font-medium text-gray-900 sticky left-10 bg-white"><div className="truncate w-44" title={emp.name}>{emp.name}</div><div className="text-[10px] text-gray-400 truncate w-44">{emp.designation}</div></td>
-                                            <td className="p-2 border-r text-center font-bold text-gray-600">{emp.leaveBalance}</td>
-                                            <td className="p-2 border-r text-center font-bold text-blue-600 bg-blue-50/30">{emp.team !== 'Office Staff' ? totalOT : '-'}</td>
-                                            {monthDays.map(day => {
-                                                // Use local date formatting to ensure accurate lookup key
-                                                const dateStr = formatDateLocal(day);
-                                                const record = attendance.find(r => r.employeeId === emp.id && r.date === dateStr);
-                                                const status = record?.status;
-                                                const legend = status ? ATTENDANCE_LEGEND[status] : null;
-                                                const isSunday = day.getDay() === 0;
-                                                return (
-                                                    <td 
-                                                        key={day.getDate()} 
-                                                        onClick={() => { if (currentUser.permissions.canManageAttendance) { setShowAttendanceModal({ isOpen: true, employee: emp, date: day, record }); } }}
-                                                        className={`border-r text-center transition-all relative ${legend?.color || (isSunday ? 'bg-gray-50' : '')} ${currentUser.permissions.canManageAttendance ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
-                                                        title={record ? `Updated by: ${record.updatedBy || 'System'}\nNote: ${record.note || '-'}` : ''}
-                                                    >
-                                                        <div className="h-8 flex items-center justify-center text-[10px] font-bold relative group">
-                                                            {legend?.code}
-                                                            {record?.otAttachment && (<Paperclip className="w-2 h-2 absolute top-0.5 right-0.5 text-indigo-600" />)}
-                                                            {record?.overtimeHours && record.overtimeHours > 0 && (<span className="absolute bottom-0.5 right-0.5 text-[8px] text-blue-600 font-mono">+{record.overtimeHours}</span>)}
-                                                        </div>
-                                                    </td>
-                                                );
-                                            })}
-                                            <td className="p-2 border-l text-xs text-gray-500 whitespace-nowrap">P: {present} / A: {absent} <br/> Hrs: {totalHours}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        )}
+       <main className="p-6 w-full">
+          {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                      <h2 className="text-2xl font-bold text-gray-800">Overview</h2>
+                      {currentUser.role === UserRole.ADMIN && (
+                          <button onClick={() => setShowUserManagement(true)} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2">
+                              <User className="w-4 h-4" /> User Management
+                          </button>
+                      )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div onClick={() => handleDashboardFilter('active')} className="bg-white p-6 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-shadow">
+                          <h3 className="text-gray-500 text-sm font-medium">Total Active Staff</h3>
+                          <div className="flex justify-between items-end">
+                              <p className="text-3xl font-bold text-gray-800 mt-2">{employees.filter(e => e.active).length}</p>
+                              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Users className="w-5 h-5" /></div>
+                          </div>
+                      </div>
+                      <div onClick={() => handleDashboardFilter('internal')} className="bg-white p-6 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-shadow">
+                          <h3 className="text-gray-500 text-sm font-medium">Internal Team</h3>
+                          <div className="flex justify-between items-end">
+                              <p className="text-3xl font-bold text-gray-800 mt-2">{employees.filter(e => e.active && e.team === 'Internal Team').length}</p>
+                              <div className="p-2 bg-green-50 text-green-600 rounded-lg"><Users className="w-5 h-5" /></div>
+                          </div>
+                      </div>
+                      <div onClick={() => handleDashboardFilter('external')} className="bg-white p-6 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-shadow">
+                          <h3 className="text-gray-500 text-sm font-medium">External Team</h3>
+                          <div className="flex justify-between items-end">
+                              <p className="text-3xl font-bold text-gray-800 mt-2">{employees.filter(e => e.active && e.team === 'External Team').length}</p>
+                              <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><Users className="w-5 h-5" /></div>
+                          </div>
+                      </div>
+                      <div onClick={() => handleDashboardFilter('office')} className="bg-white p-6 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-shadow">
+                          <h3 className="text-gray-500 text-sm font-medium">Office Staff</h3>
+                          <div className="flex justify-between items-end">
+                              <p className="text-3xl font-bold text-gray-800 mt-2">{employees.filter(e => e.active && e.team === 'Office Staff').length}</p>
+                              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Building2 className="w-5 h-5" /></div>
+                          </div>
+                      </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="bg-white p-6 rounded-xl shadow-sm border">
+                          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Building2 className="w-4 h-4"/> Staff by Company</h3>
+                          <div className="space-y-3">
+                              {companies.map(c => {
+                                  const count = employees.filter(e => e.active && e.company === c).length;
+                                  return (
+                                      <div key={c} onClick={() => handleDashboardFilter('company', c)} className="flex justify-between items-center p-3 bg-gray-50 rounded cursor-pointer hover:bg-gray-100">
+                                          <span className="text-sm text-gray-600 truncate flex-1 pr-4" title={c}>{c}</span>
+                                          <span className="font-bold text-gray-800 bg-white px-2 py-1 rounded text-xs border">{count}</span>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </div>
+                      <div className="bg-white p-6 rounded-xl shadow-sm border">
+                          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Lock className="w-4 h-4"/> My Access</h3>
+                          <div className="bg-gray-900 text-white p-6 rounded-xl">
+                              <div className="flex items-center gap-4 mb-6">
+                                  <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-xl font-bold">
+                                      {currentUser.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                      <div className="font-bold text-lg">{currentUser.name}</div>
+                                      <div className="text-gray-400 text-sm">@{currentUser.username}</div>
+                                  </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-xs text-gray-400">
+                                  {Object.entries(currentUser.permissions).filter(([_, v]) => v).map(([k]) => (
+                                      <div key={k} className="flex items-center gap-2">
+                                          <CheckCircle className="w-3 h-3 text-green-500" />
+                                          {k.replace('can', '')}
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          )}
 
-        {activeTab === 'leave' && (
-            <div className="w-full space-y-6">
-                <div className="flex justify-between items-center"><h2 className="text-xl font-bold">Leave Management</h2>{currentUser.permissions.canManageLeaves && (<button onClick={() => setShowLeaveModal(true)} className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 flex items-center gap-2"><Plus className="w-4 h-4"/> Request Leave</button>)}</div>
-                <div className="bg-white rounded-xl shadow overflow-hidden">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 text-gray-700 font-bold uppercase"><tr><th className="p-4">Employee</th><th className="p-4">Type</th><th className="p-4">Duration</th><th className="p-4">Reason</th><th className="p-4">Applied On</th><th className="p-4 text-right">Status</th></tr></thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {leaveRequests.map(req => {
-                                const emp = employees.find(e => e.id === req.employeeId);
-                                return (
-                                    <tr key={req.id} className="hover:bg-gray-50">
-                                        <td className="p-4 font-medium">{emp?.name || 'Unknown'}</td>
-                                        <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${req.type === AttendanceStatus.SICK_LEAVE ? 'bg-orange-100 text-orange-700' : req.type === AttendanceStatus.ANNUAL_LEAVE ? 'bg-blue-100 text-blue-700' : req.type === AttendanceStatus.UNPAID_LEAVE ? 'bg-red-100 text-red-700' : 'bg-pink-100 text-pink-700'}`}>{ATTENDANCE_LEGEND[req.type]?.label}</span></td>
-                                        <td className="p-4 text-gray-600">{req.startDate} to {req.endDate}</td>
-                                        <td className="p-4 text-gray-500 truncate max-w-xs">{req.reason}</td>
-                                        <td className="p-4 text-gray-400 text-xs">{req.appliedOn}</td>
-                                        <td className="p-4 text-right">
-                                            {req.status === LeaveStatus.PENDING ? (
-                                                <div className="flex justify-end gap-2">
-                                                    {currentUser.permissions.canManageLeaves && (
-                                                        <><button onClick={() => { updateLeaveRequestStatus(req.id, LeaveStatus.APPROVED); handleRefresh(); }} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check className="w-4 h-4"/></button><button onClick={() => { updateLeaveRequestStatus(req.id, LeaveStatus.REJECTED); handleRefresh(); }} className="p-1 text-red-600 hover:bg-red-50 rounded"><XCircle className="w-4 h-4"/></button></>
-                                                    )}
-                                                </div>
-                                            ) : (<span className={`text-xs font-bold ${req.status === LeaveStatus.APPROVED ? 'text-green-600' : 'text-red-600'}`}>{req.status}</span>)}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            {leaveRequests.length === 0 && (<tr><td colSpan={6} className="p-8 text-center text-gray-400 italic">No leave requests found.</td></tr>)}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        )}
+          {activeTab === 'directory' && (
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                      <h2 className="text-xl font-bold">Employee Directory</h2>
+                      <div className="flex gap-2">
+                          <button onClick={() => setShowEmpImport(true)} className="px-4 py-2 border rounded hover:bg-gray-50 text-sm flex items-center gap-2"><Upload className="w-4 h-4"/> Import CSV/Excel</button>
+                          <button onClick={() => setShowOnboarding(true)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm flex items-center gap-2">
+                              <UserPlus className="w-4 h-4" /> Onboard Employee
+                          </button>
+                      </div>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                      <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm whitespace-nowrap">
+                              <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
+                                  <tr>
+                                      <th className="p-4">Code</th>
+                                      <th className="p-4">Name</th>
+                                      <th className="p-4">Company</th>
+                                      <th className="p-4">Team</th>
+                                      <th className="p-4">Designation</th>
+                                      <th className="p-4">Status</th>
+                                      <th className="p-4">Leave Bal</th>
+                                      <th className="p-4">Emirates ID</th>
+                                      <th className="p-4">Passport Exp</th>
+                                      <th className="p-4">Labour Card Exp</th>
+                                      <th className="p-4 text-center sticky right-0 bg-gray-50 z-10 shadow-l">Actions</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                  {filteredEmployees.map(emp => (
+                                      <tr key={emp.id} className="hover:bg-gray-50">
+                                          <td className="p-4 font-mono text-gray-500">{emp.code}</td>
+                                          <td className="p-4 font-bold text-gray-800">{emp.name}</td>
+                                          <td className="p-4 text-gray-500 truncate max-w-[150px]" title={emp.company}>{emp.company}</td>
+                                          <td className="p-4 text-gray-500">{emp.team}</td>
+                                          <td className="p-4 text-gray-500">{emp.designation}</td>
+                                          <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${emp.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{emp.status}</span></td>
+                                          <td className="p-4 font-bold text-indigo-600">{emp.leaveBalance}</td>
+                                          <td className="p-4 text-xs font-mono">{emp.documents?.emiratesId || '-'}</td>
+                                          <td className={`p-4 text-xs font-mono ${getDateColor(emp.documents?.passportExpiry, 'passport')}`}>{emp.documents?.passportExpiry || '-'}</td>
+                                          <td className={`p-4 text-xs font-mono ${getDateColor(emp.documents?.labourCardExpiry)}`}>{emp.documents?.labourCardExpiry || '-'}</td>
+                                          <td className="p-4 text-center sticky right-0 bg-white z-10 shadow-l border-l flex justify-center gap-2">
+                                              <button onClick={() => setEditEmployee(emp)} className="text-blue-600 hover:bg-blue-50 p-1 rounded"><Edit className="w-4 h-4" /></button>
+                                              {emp.active && <button onClick={() => setShowOffboarding(emp)} className="text-red-600 hover:bg-red-50 p-1 rounded"><UserPlus className="w-4 h-4" /></button>}
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              </div>
+          )}
 
-        {activeTab === 'payroll' && (
-             <div className="space-y-4">
-                 <div className="flex justify-between items-center print:hidden"><h2 className="text-xl font-bold">Payroll Register - {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>{currentUser.permissions.canManagePayroll && (<button onClick={() => window.print()} className="flex items-center gap-2 text-gray-600 hover:bg-gray-100 px-3 py-2 rounded border"><Printer className="w-4 h-4"/> Print Summary</button>)}</div>
-                 <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-200 print:shadow-none print:border-none print:w-full">
-                     <div className="overflow-x-auto">
-                         <table className="w-full text-xs text-left border-collapse">
-                             <thead className="bg-gray-50 text-gray-700 font-bold border-b"><tr><th className="p-2 border-r">Code</th><th className="p-2 border-r w-32">Name</th><th className="p-2 border-r text-right">Basic</th><th className="p-2 border-r text-right">Housing</th><th className="p-2 border-r text-right">Transport</th><th className="p-2 border-r text-right">Other</th><th className="p-2 border-r text-right bg-gray-100">Gross</th><th className="p-2 border-r text-right text-red-600">Deductions</th><th className="p-2 border-r text-right text-blue-600">Additions</th><th className="p-2 border-r text-right bg-green-50 text-green-700">Net Salary</th><th className="p-2 text-center print:hidden">Action</th></tr></thead>
-                             <tbody className="divide-y divide-gray-100">
-                                 {filteredEmployees.map(emp => {
-                                     const gross = (emp.salary?.basic || 0) + (emp.salary?.housing || 0) + (emp.salary?.transport || 0) + (emp.salary?.other || 0);
-                                     const empRecs = attendance.filter(r => r.employeeId === emp.id);
-                                     const absentDays = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE || r.status === AttendanceStatus.EMERGENCY_LEAVE).length;
-                                     const deduction = (gross / 30) * absentDays;
-                                     const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
-                                     const additions = overtimePay + holidayPay + weekOffPay;
-                                     const net = gross - deduction + additions;
-                                     return (
-                                         <tr key={emp.id} className="hover:bg-gray-50">
-                                             <td className="p-2 border-r font-mono text-gray-500">{emp.code}</td><td className="p-2 border-r font-medium">{emp.name}</td><td className="p-2 border-r text-right text-gray-500">{(emp.salary?.basic || 0).toLocaleString()}</td><td className="p-2 border-r text-right text-gray-500">{(emp.salary?.housing || 0).toLocaleString()}</td><td className="p-2 border-r text-right text-gray-500">{(emp.salary?.transport || 0).toLocaleString()}</td><td className="p-2 border-r text-right text-gray-500">{(emp.salary?.other || 0).toLocaleString()}</td><td className="p-2 border-r text-right font-bold bg-gray-50">{gross.toLocaleString()}</td><td className="p-2 border-r text-right text-red-600">({deduction.toLocaleString(undefined, {maximumFractionDigits: 0})})</td><td className="p-2 border-r text-right text-blue-600">{additions > 0 ? `+${additions.toLocaleString(undefined, {maximumFractionDigits: 0})}` : '-'}</td><td className="p-2 border-r text-right font-bold bg-green-50 text-green-700">{net.toLocaleString(undefined, {maximumFractionDigits: 0})}</td><td className="p-2 text-center print:hidden">{currentUser.permissions.canManagePayroll && (<button onClick={() => setShowPayslip(emp)} className="text-indigo-600 hover:underline">Payslip</button>)}</td>
-                                         </tr>
-                                     );
-                                 })}
-                             </tbody>
-                         </table>
-                     </div>
-                 </div>
-             </div>
-        )}
-        {activeTab === 'reports' && <ReportsView employees={employees} attendance={attendance} />}
-        {activeTab === 'about' && <AboutView currentUser={currentUser} />}
-      </main>
-      <ManageCompaniesModal isOpen={showManageCompanies} onClose={() => setShowManageCompanies(false)} companies={companies} onDataChange={setCompanies} />
-      <UserManagementModal isOpen={showUserManagement} onClose={() => setShowUserManagement(false)} />
-      <AttendanceActionModal isOpen={showAttendanceModal.isOpen} onClose={() => setShowAttendanceModal({ isOpen: false })} onSave={(status: AttendanceStatus, ot: number, attachment?: string, note?: string) => { if (showAttendanceModal.employee && showAttendanceModal.date) { 
-          logAttendance(showAttendanceModal.employee.id, status, formatDateLocal(showAttendanceModal.date), ot, attachment, currentUser.username, note); 
-          setShowAttendanceModal({ isOpen: false }); handleRefresh(); } 
-      }} onDelete={handleDeleteAttendance} employeeName={showAttendanceModal.employee?.name || ''} date={showAttendanceModal.date || new Date()} currentStatus={showAttendanceModal.record?.status || (showAttendanceModal.date?.getDay() === 0 ? AttendanceStatus.WEEK_OFF : AttendanceStatus.PRESENT)} currentOt={showAttendanceModal.record?.overtimeHours || 0} currentAttachment={showAttendanceModal.record?.otAttachment} currentNote={showAttendanceModal.record?.note} onPreview={(data: string) => setShowPreview(data)} isOtEligible={showAttendanceModal.employee?.team !== 'Office Staff'} />
-      {showPreview && (<DocumentPreviewModal isOpen={true} onClose={() => setShowPreview(null)} attachment={showPreview} />)}
-      <BulkImportModal isOpen={showImport} onClose={() => setShowImport(false)} onImport={(csv: string) => { const res = importAttendanceFromCSV(csv); alert(`Imported ${res.success} records. Errors: ${res.errors.length}`); setShowImport(false); handleRefresh(); }} />
-      <EmployeeImportModal isOpen={showEmpImport} onClose={() => setShowEmpImport(false)} onImport={(csv: string) => { const res = importEmployeesFromCSV(csv); alert(`Imported/Updated ${res.success} employees. Errors: ${res.errors.length}`); setShowEmpImport(false); handleRefresh(); }} />
-      {editingEmployee && (<EditEmployeeModal employee={editingEmployee} companies={companies} onClose={() => setEditingEmployee(null)} onSave={(updated: Employee) => { updateEmployee(updated); setEditingEmployee(null); handleRefresh(); }} />)}
-      {showOnboarding && (<OnboardingWizard companies={companies} onClose={() => setShowOnboarding(false)} onComplete={() => { setShowOnboarding(false); handleRefresh(); }} />)}
-      {showOffboarding && (<OffboardingWizard employee={showOffboarding} onClose={() => setShowOffboarding(null)} onComplete={() => { setShowOffboarding(null); handleRefresh(); }} />)}
-      {showRehire && (<RehireModal employee={showRehire} onClose={() => setShowRehire(null)} onConfirm={(id: string, date: string, reason: string) => { rehireEmployee(id, date, reason); setShowRehire(null); handleRefresh(); }} />)}
-      {showExEmployeeDetails && (<ExEmployeeDetailsModal employee={showExEmployeeDetails} onClose={() => setShowExEmployeeDetails(null)} />)}
-      {showLeaveModal && (<LeaveRequestModal employees={employees.filter(e => e.active)} onClose={() => setShowLeaveModal(false)} onSave={() => { setShowLeaveModal(false); handleRefresh(); }} />)}
-      <HolidayManagementModal isOpen={showHolidays} onClose={() => { setShowHolidays(false); handleRefresh(); }} />
-      {showPayslip && (<PayslipModal employee={showPayslip} month={currentDate.getMonth()} year={currentDate.getFullYear()} onClose={() => setShowPayslip(null)} />)}
-      <CopyAttendanceModal isOpen={showCopyModal} onClose={() => setShowCopyModal(false)} onCopy={handleCopyAttendance} />
+          {activeTab === 'ex-employees' && (
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                      <h2 className="text-xl font-bold">Ex-Employees History</h2>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                      <table className="w-full text-left text-sm">
+                          <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
+                              <tr>
+                                  <th className="p-4">Code</th>
+                                  <th className="p-4">Name</th>
+                                  <th className="p-4">Exit Date</th>
+                                  <th className="p-4">Type</th>
+                                  <th className="p-4">Reason</th>
+                                  <th className="p-4 text-center">Actions</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                              {filteredEmployees.map(emp => (
+                                  <tr key={emp.id} className="hover:bg-gray-50">
+                                      <td className="p-4 font-mono text-gray-500">{emp.code}</td>
+                                      <td className="p-4 font-bold text-gray-800">{emp.name}</td>
+                                      <td className="p-4">{emp.offboardingDetails?.exitDate}</td>
+                                      <td className="p-4"><span className="bg-red-50 text-red-600 px-2 py-1 rounded text-xs font-bold">{emp.offboardingDetails?.type}</span></td>
+                                      <td className="p-4 text-gray-500 truncate max-w-[200px]">{emp.offboardingDetails?.reason}</td>
+                                      <td className="p-4 text-center flex justify-center gap-2">
+                                          <button onClick={() => setShowExEmployeeDetails(emp)} className="text-gray-600 hover:bg-gray-100 px-2 py-1 rounded text-xs border">View Details</button>
+                                          <button onClick={() => setShowRehire(emp)} className="text-green-600 hover:bg-green-50 px-2 py-1 rounded text-xs border border-green-200 font-bold flex items-center gap-1">
+                                              <RefreshCcw className="w-3 h-3" /> Re-join
+                                          </button>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          )}
+
+          {activeTab === 'timesheet' && (
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center bg-white p-3 rounded-xl border shadow-sm">
+                      <div className="flex items-center gap-2">
+                          <button onClick={() => handleMonthChange(-1)} className="p-1 hover:bg-gray-100 rounded"><ChevronLeft /></button>
+                          <h2 className="text-lg font-bold w-32 text-center">{currentDate.toLocaleString('default', { month: 'short', year: '2-digit' })}</h2>
+                          <button onClick={() => handleMonthChange(1)} className="p-1 hover:bg-gray-100 rounded"><ChevronRight /></button>
+                      </div>
+                      <div className="flex gap-2">
+                          <button onClick={() => setShowHolidays(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 text-purple-600 border-purple-200 bg-purple-50 flex items-center gap-2"><Calendar className="w-4 h-4"/> Manage Holidays</button>
+                          <button onClick={() => setShowCopyModal(true)} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 text-orange-600 border-orange-200 bg-orange-50 flex items-center gap-2"><Copy className="w-4 h-4"/> Copy Attendance</button>
+                      </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 justify-end mb-2">
+                      {Object.entries(LEGEND).map(([key, val]) => (
+                          <span key={key} className={`text-[10px] px-2 py-1 rounded border ${val.color}`}>{val.code} - {val.label}</span>
+                      ))}
+                  </div>
+
+                  <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+                      <table className="w-full text-sm border-collapse">
+                          <thead>
+                              <tr>
+                                  <th className="p-2 border bg-gray-50 min-w-[50px] sticky left-0 z-20 text-center">#</th>
+                                  <th className="p-2 border bg-gray-50 min-w-[200px] sticky left-[50px] z-20 text-left">Employee</th>
+                                  <th className="p-2 border bg-gray-50 min-w-[60px] text-center">Leave Bal</th>
+                                  <th className="p-2 border bg-gray-50 min-w-[50px] text-center text-blue-600">OT</th>
+                                  {daysInMonth.map(day => (
+                                      <th key={day.toString()} className={`p-1 border min-w-[36px] text-center ${day.getDay() === 0 ? 'text-red-600 bg-red-50' : 'bg-gray-50'}`}>
+                                          <div className="text-xs font-bold">{day.getDate()}</div>
+                                          <div className="text-[9px] uppercase">{day.toLocaleString('default', { weekday: 'narrow' })}</div>
+                                      </th>
+                                  ))}
+                                  <th className="p-2 border bg-gray-50 min-w-[100px]">Summary</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {filteredEmployees.map((emp, idx) => {
+                                  const empRecords = attendance.filter(r => r.employeeId === emp.id);
+                                  const totalOT = empRecords.reduce((acc, r) => acc + r.overtimeHours, 0);
+                                  return (
+                                      <tr key={emp.id} className="hover:bg-gray-50 group">
+                                          <td className="p-2 border text-center sticky left-0 bg-white z-10 text-gray-400 text-xs">{idx + 1}</td>
+                                          <td className="p-2 border font-medium sticky left-[50px] bg-white z-10">
+                                              <div className="font-bold text-gray-800">{emp.name}</div>
+                                              <div className="text-[10px] text-gray-500">{emp.designation}</div>
+                                          </td>
+                                          <td className="p-2 border text-center font-bold text-gray-600">{emp.leaveBalance}</td>
+                                          <td className="p-2 border text-center font-bold text-blue-600">{totalOT > 0 ? totalOT : '-'}</td>
+                                          {daysInMonth.map(day => {
+                                              const dateStr = formatDateLocal(day);
+                                              const record = attendance.find(r => r.employeeId === emp.id && r.date === dateStr);
+                                              const legend = record ? LEGEND[record.status] : null;
+                                              return (
+                                                  <td 
+                                                    key={day.toString()} 
+                                                    className={`border text-center cursor-pointer transition-all hover:opacity-80 p-0 h-10 relative ${legend ? legend.color : 'hover:bg-gray-100'}`}
+                                                    onClick={() => handleAttendanceClick(emp, day)}
+                                                    title={record ? `Updated by: ${record.updatedBy}\nNote: ${record.note || '-'}` : 'Click to mark'}
+                                                  >
+                                                      <div className="flex flex-col items-center justify-center h-full">
+                                                          <span className="font-bold text-xs">{legend ? legend.code : ''}</span>
+                                                          {record?.otAttachment && <Paperclip className="w-2 h-2 text-indigo-600 absolute top-0.5 right-0.5" />}
+                                                      </div>
+                                                  </td>
+                                              );
+                                          })}
+                                          <td className="p-2 border text-[10px] text-gray-500 leading-tight">
+                                              P: {empRecords.filter(r => r.status === AttendanceStatus.PRESENT).length} / A: {empRecords.filter(r => r.status === AttendanceStatus.ABSENT).length}<br/>
+                                              Hrs: {empRecords.reduce((acc, r) => acc + r.hoursWorked, 0)}
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          )}
+
+          {activeTab === 'leave' && (
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                      <h2 className="text-xl font-bold text-gray-800">Leave Management</h2>
+                      <button onClick={() => setShowLeaveModal(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-700">
+                          <FileText className="w-4 h-4" /> New Request
+                      </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {leaveRequests.map(req => {
+                          const emp = employees.find(e => e.id === req.employeeId);
+                          return (
+                              <div key={req.id} className="bg-white p-4 rounded-xl shadow-sm border flex flex-col justify-between">
+                                  <div>
+                                      <div className="flex justify-between items-start mb-2">
+                                          <div>
+                                              <h4 className="font-bold text-gray-800">{emp?.name}</h4>
+                                              <span className="text-xs text-gray-500">{emp?.designation}</span>
+                                          </div>
+                                          <span className={`px-2 py-1 rounded text-xs font-bold ${req.status === LeaveStatus.APPROVED ? 'bg-green-100 text-green-800' : req.status === LeaveStatus.REJECTED ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                              {req.status}
+                                          </span>
+                                      </div>
+                                      <div className="bg-gray-50 p-2 rounded text-sm mb-3">
+                                          <div className="flex justify-between"><span className="text-gray-500">Type:</span> <span className="font-medium">{req.type}</span></div>
+                                          <div className="flex justify-between"><span className="text-gray-500">From:</span> <span className="font-medium">{req.startDate}</span></div>
+                                          <div className="flex justify-between"><span className="text-gray-500">To:</span> <span className="font-medium">{req.endDate}</span></div>
+                                      </div>
+                                      <p className="text-sm text-gray-600 italic mb-4">"{req.reason}"</p>
+                                  </div>
+                                  {req.status === LeaveStatus.PENDING && (
+                                      <div className="flex gap-2 mt-auto">
+                                          <button onClick={() => handleLeaveAction(req.id, LeaveStatus.REJECTED)} className="flex-1 py-1.5 border border-red-200 text-red-600 rounded hover:bg-red-50 text-sm">Reject</button>
+                                          <button onClick={() => handleLeaveAction(req.id, LeaveStatus.APPROVED)} className="flex-1 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Approve</button>
+                                      </div>
+                                  )}
+                              </div>
+                          );
+                      })}
+                      {leaveRequests.length === 0 && <p className="col-span-3 text-center text-gray-400 py-12 italic">No leave requests found.</p>}
+                  </div>
+              </div>
+          )}
+
+          {activeTab === 'payroll' && (
+              <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                      <h2 className="text-xl font-bold text-gray-800">Payroll Register - {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
+                      <div className="flex gap-2">
+                          <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center gap-2" onClick={() => window.print()}>
+                              <Printer className="w-4 h-4" /> Print Summary
+                          </button>
+                      </div>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                      <table className="w-full text-left text-sm">
+                          <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
+                              <tr>
+                                  <th className="p-4">Code</th>
+                                  <th className="p-4">Name</th>
+                                  <th className="p-4 text-right">Basic</th>
+                                  <th className="p-4 text-right">Housing</th>
+                                  <th className="p-4 text-right">Transport</th>
+                                  <th className="p-4 text-right">Air Ticket</th>
+                                  <th className="p-4 text-right">Leave Payment</th>
+                                  <th className="p-4 text-right">Other</th>
+                                  <th className="p-4 text-right font-bold">Gross</th>
+                                  <th className="p-4 text-right text-red-600">Deductions</th>
+                                  <th className="p-4 text-right text-blue-600">Additions</th>
+                                  <th className="p-4 text-right font-bold text-green-600">Net Salary</th>
+                                  <th className="p-4 text-center print:hidden">Action</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                              {filteredEmployees.filter(e => e.active).map(emp => {
+                                  const empRecs = attendance.filter(r => r.employeeId === emp.id);
+                                  const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
+                                  const totalAdditions = overtimePay + holidayPay + weekOffPay;
+                                  
+                                  const basic = emp.salary?.basic || 0;
+                                  const housing = emp.salary?.housing || 0;
+                                  const transport = emp.salary?.transport || 0;
+                                  const other = emp.salary?.other || 0;
+                                  const airTicket = emp.salary?.airTicket || 0;
+                                  const leaveSalary = emp.salary?.leaveSalary || 0;
+                                  
+                                  const gross = basic + housing + transport + other + airTicket + leaveSalary;
+                                  
+                                  const absentDays = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
+                                  const deduction = (gross / 30) * absentDays;
+                                  const net = gross - deduction + totalAdditions;
+
+                                  return (
+                                      <tr key={emp.id} className="hover:bg-gray-50">
+                                          <td className="p-4 font-mono text-gray-500 text-xs">{emp.code}</td>
+                                          <td className="p-4 font-bold text-gray-800">{emp.name}</td>
+                                          <td className="p-4 text-right text-gray-600">{basic.toLocaleString()}</td>
+                                          <td className="p-4 text-right text-gray-600">{housing.toLocaleString()}</td>
+                                          <td className="p-4 text-right text-gray-600">{transport.toLocaleString()}</td>
+                                          <td className="p-4 text-right text-gray-600">{airTicket.toLocaleString()}</td>
+                                          <td className="p-4 text-right text-gray-600">{leaveSalary.toLocaleString()}</td>
+                                          <td className="p-4 text-right text-gray-600">{other.toLocaleString()}</td>
+                                          <td className="p-4 text-right font-bold">{gross.toLocaleString()}</td>
+                                          <td className="p-4 text-right text-red-600">({deduction.toLocaleString(undefined, {maximumFractionDigits: 0})})</td>
+                                          <td className="p-4 text-right text-blue-600">{totalAdditions > 0 ? totalAdditions.toLocaleString() : '-'}</td>
+                                          <td className="p-4 text-right font-bold text-green-700">{net.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                                          <td className="p-4 text-center print:hidden">
+                                              <button onClick={() => setShowPayslip(emp)} className="text-blue-600 hover:text-blue-800 text-xs font-bold hover:underline">Payslip</button>
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          )}
+          
+          {activeTab === 'reports' && <ReportsView employees={employees} attendance={attendance} />}
+          {activeTab === 'about' && <AboutView currentUser={currentUser} />}
+
+       </main>
+
+       {/* Modals */}
+       {showOnboarding && (
+           <OnboardingWizard companies={companies} onClose={() => setShowOnboarding(false)} onComplete={() => { setShowOnboarding(false); handleRefresh(); }} />
+       )}
+       {showOffboarding && (
+           <OffboardingWizard employee={showOffboarding} onClose={() => setShowOffboarding(null)} onComplete={() => { setShowOffboarding(null); handleRefresh(); }} />
+       )}
+       {showImport && (
+           <BulkImportModal 
+             isOpen={showImport} 
+             onClose={() => setShowImport(false)} 
+             onImport={(csv: string) => { 
+               importAttendanceFromCSV(csv); 
+               setShowImport(false); 
+               handleRefresh(); 
+             }} 
+           />
+       )}
+       {showEmpImport && (
+           <EmployeeImportModal 
+             isOpen={showEmpImport} 
+             onClose={() => setShowEmpImport(false)} 
+             onImport={(csv: string) => { 
+               importEmployeesFromCSV(csv); 
+               setShowEmpImport(false); 
+               handleRefresh(); 
+             }} 
+           />
+       )}
+       {showAttendanceModal.isOpen && showAttendanceModal.employee && showAttendanceModal.date && (
+           <AttendanceActionModal 
+                isOpen={true}
+                onClose={() => setShowAttendanceModal({ isOpen: false })}
+                onSave={handleAttendanceSave}
+                onDelete={handleAttendanceDelete}
+                employeeName={showAttendanceModal.employee.name}
+                date={formatDateLocal(showAttendanceModal.date)}
+                currentStatus={attendance.find(r => r.employeeId === showAttendanceModal.employee!.id && r.date === formatDateLocal(showAttendanceModal.date!))?.status || AttendanceStatus.PRESENT}
+                currentOt={attendance.find(r => r.employeeId === showAttendanceModal.employee!.id && r.date === formatDateLocal(showAttendanceModal.date!))?.overtimeHours || 0}
+                currentAttachment={attendance.find(r => r.employeeId === showAttendanceModal.employee!.id && r.date === formatDateLocal(showAttendanceModal.date!))?.otAttachment}
+                currentNote={attendance.find(r => r.employeeId === showAttendanceModal.employee!.id && r.date === formatDateLocal(showAttendanceModal.date!))?.note}
+                onPreview={setShowPreview}
+                isOtEligible={showAttendanceModal.employee.team !== 'Office Staff'}
+           />
+       )}
+       {showPayslip && (
+           <PayslipModal employee={showPayslip} month={currentDate.getMonth()} year={currentDate.getFullYear()} onClose={() => setShowPayslip(null)} />
+       )}
+       {showHolidays && (
+           <HolidayManagementModal isOpen={showHolidays} onClose={() => setShowHolidays(false)} />
+       )}
+       {showPreview && (
+           <DocumentPreviewModal isOpen={true} onClose={() => setShowPreview(null)} attachment={showPreview} />
+       )}
+       {showUserManagement && (
+           <UserManagementModal isOpen={true} onClose={() => setShowUserManagement(false)} />
+       )}
+       {showManageCompanies && (
+           <ManageCompaniesModal isOpen={true} onClose={() => setShowManageCompanies(false)} companies={companies} onDataChange={setCompanies} />
+       )}
+       {showExEmployeeDetails && (
+           <ExEmployeeDetailsModal employee={showExEmployeeDetails} onClose={() => setShowExEmployeeDetails(null)} />
+       )}
+       {showCopyModal && (
+           <CopyAttendanceModal isOpen={true} onClose={() => setShowCopyModal(false)} onCopy={handleCopyAttendance} />
+       )}
+       {showLeaveModal && (
+           <LeaveRequestModal employees={employees} onClose={() => setShowLeaveModal(false)} onSave={handleRefresh} />
+       )}
+       {showRehire && (
+           <RehireModal 
+             employee={showRehire} 
+             onClose={() => setShowRehire(null)} 
+             onConfirm={(id: string, date: string, reason: string) => { 
+               rehireEmployee(id, date, reason); 
+               setShowRehire(null); 
+               handleRefresh(); 
+             }} 
+           />
+       )}
+       {editEmployee && (
+           <EditEmployeeModal employee={editEmployee} companies={companies} onClose={() => setEditEmployee(null)} onSave={handleEditSave} />
+       )}
     </div>
   );
-}
+};
 
 export default App;

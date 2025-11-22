@@ -16,6 +16,8 @@ export interface SalaryStructure {
   housing: number;
   transport: number;
   other: number;
+  airTicket: number;
+  leaveSalary: number;
 }
 
 export interface OffboardingDetails {

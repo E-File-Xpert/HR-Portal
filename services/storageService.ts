@@ -331,7 +331,7 @@ export const importEmployeesFromCSV = (csvText: string): { success: number, erro
     const employees = getEmployees();
     
     // Header expectation:
-    // Code, Name, Designation, Department, Company, JoiningDate, Type, Status, Team, Location, Basic, Housing, Transport, Other, EmiratesID, EIDExpiry, Passport, PassExpiry, LabourCard, LCExpiry, VacationDate
+    // Code, Name, Designation, Department, Company, JoiningDate, Type, Status, Team, Location, Basic, Housing, Transport, Other, AirTicket, LeaveSalary, EmiratesID, EIDExpiry, Passport, PassExpiry, LabourCard, LCExpiry, VacationDate
     
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -354,15 +354,16 @@ export const importEmployeesFromCSV = (csvText: string): { success: number, erro
       const housing = parseFloat(parts[11]?.trim() || '0') || 0;
       const transport = parseFloat(parts[12]?.trim() || '0') || 0;
       const other = parseFloat(parts[13]?.trim() || '0') || 0;
+      const airTicket = parseFloat(parts[14]?.trim() || '0') || 0;
+      const leaveSalary = parseFloat(parts[15]?.trim() || '0') || 0;
 
-      // New Fields
-      const emiratesId = parts[14]?.trim();
-      const eidExpiry = parts[15]?.trim();
-      const passport = parts[16]?.trim();
-      const passExpiry = parts[17]?.trim();
-      const labourCard = parts[18]?.trim();
-      const lcExpiry = parts[19]?.trim();
-      const vacationDate = parts[20]?.trim();
+      const emiratesId = parts[16]?.trim();
+      const eidExpiry = parts[17]?.trim();
+      const passport = parts[18]?.trim();
+      const passExpiry = parts[19]?.trim();
+      const labourCard = parts[20]?.trim();
+      const lcExpiry = parts[21]?.trim();
+      const vacationDate = parts[22]?.trim();
   
       if (!code || !name) {
           errors.push(`Row ${i+1}: Missing Code or Name`);
@@ -390,7 +391,7 @@ export const importEmployeesFromCSV = (csvText: string): { success: number, erro
           team: parsedTeam,
           workLocation,
           leaveBalance: existingIndex >= 0 ? employees[existingIndex].leaveBalance : 30,
-          salary: { basic, housing, transport, other },
+          salary: { basic, housing, transport, other, airTicket, leaveSalary },
           active: statusRaw !== 'Inactive',
           bankName: existingIndex >= 0 ? employees[existingIndex].bankName : undefined,
           iban: existingIndex >= 0 ? employees[existingIndex].iban : undefined,
