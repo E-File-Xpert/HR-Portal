@@ -2329,6 +2329,13 @@ const App: React.FC = () => {
                                               const dateStr = formatDateLocal(day);
                                               const record = attendance.find(r => r.employeeId === emp.id && r.date === dateStr);
                                               const legend = record ? LEGEND[record.status] : null;
+                                              
+                                              // Logic to display P+OT
+                                              let cellLabel = legend ? legend.code : '';
+                                              if (record?.status === AttendanceStatus.PRESENT && record.overtimeHours > 0) {
+                                                  cellLabel = `P+${record.overtimeHours}`;
+                                              }
+
                                               return (
                                                   <td 
                                                     key={day.toString()} 
@@ -2337,7 +2344,7 @@ const App: React.FC = () => {
                                                     title={record ? `Updated by: ${record.updatedBy}\nNote: ${record.note || '-'}` : 'Click to mark'}
                                                   >
                                                       <div className="flex flex-col items-center justify-center h-full">
-                                                          <span className="font-bold text-xs">{legend ? legend.code : ''}</span>
+                                                          <span className="font-bold text-xs">{cellLabel}</span>
                                                           {record?.otAttachment && <Paperclip className="w-2 h-2 text-indigo-600 absolute top-0.5 right-0.5" />}
                                                       </div>
                                                   </td>
