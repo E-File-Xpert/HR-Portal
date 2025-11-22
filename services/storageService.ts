@@ -1,5 +1,4 @@
-
-import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole, AboutData } from "../types";
+import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole, AboutData, DeductionRecord } from "../types";
 import { MOCK_EMPLOYEES, STORAGE_KEYS, DEFAULT_COMPANIES, DEFAULT_ADMIN, CREATOR_USER, DEFAULT_ABOUT_DATA } from "../constants";
 
 // Simulate database initialization
@@ -21,6 +20,9 @@ const initStorage = () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.ABOUT)) {
       localStorage.setItem(STORAGE_KEYS.ABOUT, JSON.stringify(DEFAULT_ABOUT_DATA));
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.DEDUCTIONS)) {
+      localStorage.setItem(STORAGE_KEYS.DEDUCTIONS, JSON.stringify([]));
   }
   
   // Initialize users logic
@@ -565,33 +567,20 @@ export const addCompany = (name: string): string[] => {
     return companies;
 }
 
+export const updateCompany = (oldName: string, newName: string): string[] => {
+    const companies = getCompanies();
+    const index = companies.indexOf(oldName);
+    if (index !== -1) {
+        companies[index] = newName;
+        localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(companies));
+    }
+    return companies;
+}
+
 export const deleteCompany = (name: string): string[] => {
     let companies = getCompanies();
     companies = companies.filter(c => c !== name);
     localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(companies));
-    return companies;
-}
-
-export const updateCompany = (oldName: string, newName: string): string[] => {
-    const companies = getCompanies();
-    const index = companies.indexOf(oldName);
-    if (index !== -1 && !companies.includes(newName)) {
-        companies[index] = newName;
-        localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(companies));
-
-        // Update all employees
-        const employees = getEmployees();
-        let hasChanges = false;
-        employees.forEach(e => {
-            if(e.company === oldName) {
-                e.company = newName;
-                hasChanges = true;
-            }
-        });
-        if(hasChanges) {
-            localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
-        }
-    }
     return companies;
 }
 
@@ -603,7 +592,7 @@ export const getSystemUsers = (): SystemUser[] => {
 
 export const addSystemUser = (user: SystemUser): SystemUser[] => {
     const users = getSystemUsers();
-    if (users.find(u => u.username === user.username)) {
+    if (users.some(u => u.username === user.username)) {
         throw new Error("Username already exists");
     }
     users.push(user);
@@ -611,13 +600,14 @@ export const addSystemUser = (user: SystemUser): SystemUser[] => {
     return users;
 }
 
-export const updateSystemUser = (oldUsername: string, updatedUser: SystemUser): SystemUser[] => {
+export const updateSystemUser = (username: string, updatedUser: SystemUser): SystemUser[] => {
     const users = getSystemUsers();
-    const index = users.findIndex(u => u.username === oldUsername);
+    const index = users.findIndex(u => u.username === username);
     if (index === -1) throw new Error("User not found");
-
-    if (oldUsername !== updatedUser.username && users.find(u => u.username === updatedUser.username)) {
-        throw new Error("New username already exists");
+    
+    // Check username uniqueness if changed
+    if (username !== updatedUser.username && users.some(u => u.username === updatedUser.username)) {
+         throw new Error("Username already taken");
     }
 
     users[index] = updatedUser;
@@ -626,13 +616,15 @@ export const updateSystemUser = (oldUsername: string, updatedUser: SystemUser): 
 }
 
 export const deleteSystemUser = (username: string): SystemUser[] => {
-    const users = getSystemUsers();
+    let users = getSystemUsers();
+    // Prevent deleting self if admin/creator logic is needed, but UI handles some.
     if (username === DEFAULT_ADMIN.username || username === CREATOR_USER.username) {
-        throw new Error("Cannot delete this protected system account.");
+        throw new Error("Cannot delete default admin or creator.");
     }
-    const updated = users.filter(u => u.username !== username);
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updated));
-    return updated;
+    
+    users = users.filter(u => u.username !== username);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    return users;
 }
 
 export const getAboutData = (): AboutData => {
@@ -643,5 +635,28 @@ export const getAboutData = (): AboutData => {
 
 export const saveAboutData = (data: AboutData) => {
     localStorage.setItem(STORAGE_KEYS.ABOUT, JSON.stringify(data));
-    return data;
 }
+
+export const getDeductions = (): DeductionRecord[] => {
+    initStorage();
+    const data = localStorage.getItem(STORAGE_KEYS.DEDUCTIONS);
+    return data ? JSON.parse(data) : [];
+};
+
+export const saveDeduction = (deduction: Omit<DeductionRecord, 'id'>) => {
+    const deductions = getDeductions();
+    const newRecord: DeductionRecord = {
+        ...deduction,
+        id: Math.random().toString(36).substr(2, 9)
+    };
+    deductions.push(newRecord);
+    localStorage.setItem(STORAGE_KEYS.DEDUCTIONS, JSON.stringify(deductions));
+    return deductions;
+};
+
+export const deleteDeduction = (id: string) => {
+    const deductions = getDeductions();
+    const updated = deductions.filter(d => d.id !== id);
+    localStorage.setItem(STORAGE_KEYS.DEDUCTIONS, JSON.stringify(updated));
+    return updated;
+};

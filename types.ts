@@ -112,6 +112,15 @@ export interface AttendanceRecord {
   note?: string; // Optional note for the status change
 }
 
+export interface DeductionRecord {
+    id: string;
+    employeeId: string;
+    date: string;
+    type: 'Salary Advance' | 'Loan Amount' | 'Damage Material/Asset' | 'Fine Amount' | 'Penalty' | 'Other';
+    amount: number;
+    note?: string;
+}
+
 export interface DashboardStats {
   totalStaff: number;
   present: number;

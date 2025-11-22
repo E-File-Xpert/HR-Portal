@@ -5,13 +5,13 @@ import {
   AlertCircle, Paperclip, Eye, Edit, Lock, CheckSquare, 
   Square, Camera, RefreshCcw, Copy, FileText, Download,
   Printer, DollarSign, ChevronLeft, ChevronRight, Search,
-  History, BarChart3, FileDown, Menu
+  History, BarChart3, FileDown, Menu, Wallet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
   Employee, AttendanceRecord, AttendanceStatus, StaffType, 
   LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, 
-  SystemUser, UserRole, AboutData, SalaryStructure 
+  SystemUser, UserRole, AboutData, SalaryStructure, DeductionRecord
 } from './types';
 import { 
   getEmployees, saveEmployee, offboardEmployee, rehireEmployee,
@@ -21,7 +21,8 @@ import {
   getCompanies, addCompany, updateCompany, deleteCompany,
   getSystemUsers, addSystemUser, updateSystemUser, deleteSystemUser,
   getAboutData, saveAboutData,
-  importAttendanceFromCSV, importEmployeesFromCSV
+  importAttendanceFromCSV, importEmployeesFromCSV,
+  getDeductions, saveDeduction, deleteDeduction
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS } from './constants';
 
@@ -175,8 +176,7 @@ const LoginScreen = ({ onLogin }: { onLogin: (user: SystemUser) => void }) => {
                         <Building2 className="w-8 h-8 text-white" />
                     </div>
                 </div>
-                <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">ShiftSync</h2>
-                <p className="text-center text-gray-500 mb-8">Secure Workforce Management Portal</p>
+                <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">ShiftSync</h2>
                 {error && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-center font-medium">{error}</div>}
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div>
@@ -572,6 +572,156 @@ const LeaveRequestModal = ({ employees, onClose, onSave }: any) => {
                     <button onClick={handleSubmit} className="px-4 py-2 bg-indigo-600 text-white rounded">Submit</button>
                 </div>
             </div>
+        </div>
+    );
+};
+
+const DeductionModal = ({ isOpen, onClose, employees, onSave }: any) => {
+    const [form, setForm] = useState({
+        employeeId: '',
+        date: new Date().toISOString().split('T')[0],
+        type: 'Salary Advance',
+        amount: 0,
+        note: ''
+    });
+
+    const handleSubmit = () => {
+        if (!form.employeeId || form.amount <= 0) return alert("Please select employee and enter a valid amount");
+        onSave(form);
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-gray-800">Add New Deduction</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
+                </div>
+                <div className="space-y-3">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+                        <select className="w-full p-2 border rounded" value={form.employeeId} onChange={e => setForm({ ...form, employeeId: e.target.value })}>
+                            <option value="">Select Employee</option>
+                            {employees.filter((e: Employee) => e.active).map((e: Employee) => <option key={e.id} value={e.id}>{e.name} ({e.code})</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                        <input type="date" className="w-full p-2 border rounded" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Deduction Type</label>
+                        <select className="w-full p-2 border rounded" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                            <option value="Salary Advance">Salary Advance</option>
+                            <option value="Loan Amount">Loan Amount</option>
+                            <option value="Damage Material/Asset">Damage Material/Asset</option>
+                            <option value="Fine Amount">Fine Amount</option>
+                            <option value="Penalty">Penalty</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (AED)</label>
+                        <input type="number" className="w-full p-2 border rounded" value={form.amount} onChange={e => setForm({ ...form, amount: parseFloat(e.target.value) })} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                        <textarea className="w-full p-2 border rounded h-20 resize-none" placeholder="Additional details..." value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}></textarea>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-6">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button onClick={handleSubmit} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save Deduction</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const DeductionsView = ({ deductions, employees, onRefresh }: any) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showModal, setShowModal] = useState(false);
+
+    const handleSave = (data: any) => {
+        saveDeduction(data);
+        onRefresh();
+    };
+
+    const handleDelete = (id: string) => {
+        if (window.confirm("Are you sure you want to delete this deduction?")) {
+            deleteDeduction(id);
+            onRefresh();
+        }
+    };
+
+    const filteredDeductions = deductions.filter((d: any) => {
+        const emp = employees.find((e: any) => e.id === d.employeeId);
+        return emp && (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.code.includes(searchTerm));
+    }).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return (
+        <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-800">Deductions Management</h2>
+                <div className="flex gap-4 items-center">
+                    <div className="relative">
+                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                         <input 
+                            type="text" 
+                            placeholder="Search Employee..." 
+                            value={searchTerm} 
+                            onChange={e => setSearchTerm(e.target.value)} 
+                            className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
+                         />
+                    </div>
+                    <button onClick={() => setShowModal(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-700">
+                        <Wallet className="w-4 h-4" /> Add Deduction
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
+                        <tr>
+                            <th className="p-4">Date</th>
+                            <th className="p-4">Employee</th>
+                            <th className="p-4">Type</th>
+                            <th className="p-4">Note</th>
+                            <th className="p-4 text-right">Amount (AED)</th>
+                            <th className="p-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {filteredDeductions.length === 0 && (
+                            <tr><td colSpan={6} className="p-6 text-center text-gray-400 italic">No deductions found.</td></tr>
+                        )}
+                        {filteredDeductions.map((d: any) => {
+                            const emp = employees.find((e: any) => e.id === d.employeeId);
+                            return (
+                                <tr key={d.id} className="hover:bg-gray-50">
+                                    <td className="p-4 text-gray-500">{d.date}</td>
+                                    <td className="p-4">
+                                        <div className="font-bold text-gray-800">{emp?.name}</div>
+                                        <div className="text-xs text-gray-500">{emp?.code}</div>
+                                    </td>
+                                    <td className="p-4"><span className="bg-red-50 text-red-600 px-2 py-1 rounded text-xs font-bold">{d.type}</span></td>
+                                    <td className="p-4 text-gray-500 truncate max-w-[200px]">{d.note}</td>
+                                    <td className="p-4 text-right font-bold text-red-600">{d.amount.toLocaleString()}</td>
+                                    <td className="p-4 text-center">
+                                        <button onClick={() => handleDelete(d.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4" /></button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+
+            <DeductionModal isOpen={showModal} onClose={() => setShowModal(false)} employees={employees} onSave={handleSave} />
         </div>
     );
 };
@@ -1337,10 +1487,23 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
     const leaveSalary = employee.salary?.leaveSalary || 0;
     const gross = basic + housing + transport + other + airTicket + leaveSalary;
     
-    const absentDays = records.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
-    const deduction = (gross / 30) * absentDays;
+    // Separate unpaid leave and absent for clarity
+    const unpaidLeaveDays = records.filter(r => r.status === AttendanceStatus.UNPAID_LEAVE).length;
+    const absentDays = records.filter(r => r.status === AttendanceStatus.ABSENT).length;
+    const totalUnpaidDays = unpaidLeaveDays + absentDays;
+    
+    const deduction = (gross / 30) * totalUnpaidDays;
+
+    // Fetch Variable Deductions
+    const empDeductions = getDeductions().filter(d => {
+        const dDate = new Date(d.date);
+        return d.employeeId === employee.id && dDate.getMonth() === month && dDate.getFullYear() === year;
+    });
+    const totalVariableDeductions = empDeductions.reduce((acc, curr) => acc + curr.amount, 0);
+
     const totalAdditions = overtimePay + holidayPay + weekOffPay;
-    const net = gross - deduction + totalAdditions;
+    const totalDeductionVal = deduction + totalVariableDeductions;
+    const net = gross - totalDeductionVal + totalAdditions;
 
     const monthName = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
 
@@ -1395,7 +1558,7 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                                 <tr>
                                     <td className="p-2 border">Basic Salary</td>
                                     <td className="p-2 border text-right">{basic.toLocaleString()}</td>
-                                    <td className="p-2 border">Absent Deduction ({absentDays} days)</td>
+                                    <td className="p-2 border">Absent/Unpaid ({totalUnpaidDays} days)</td>
                                     <td className="p-2 border text-right text-red-600">{deduction > 0 ? deduction.toLocaleString(undefined, {maximumFractionDigits: 2}) : '0.00'}</td>
                                 </tr>
                                 <tr>
@@ -1438,11 +1601,21 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                                         <td className="p-2 border text-right"></td>
                                     </tr>
                                 )}
+                                {/* Variable Deductions Rows */}
+                                {empDeductions.map(d => (
+                                    <tr key={d.id}>
+                                        <td className="p-2 border"></td>
+                                        <td className="p-2 border text-right"></td>
+                                        <td className="p-2 border text-red-600">{d.type} {d.note ? `(${d.note})` : ''}</td>
+                                        <td className="p-2 border text-right text-red-600">{d.amount.toLocaleString()}</td>
+                                    </tr>
+                                ))}
+
                                 <tr className="font-bold bg-gray-50">
                                     <td className="p-3 border">Total Earnings</td>
                                     <td className="p-3 border text-right">{(gross + totalAdditions).toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
                                     <td className="p-3 border">Total Deductions</td>
-                                    <td className="p-3 border text-right">{deduction.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                                    <td className="p-3 border text-right">{totalDeductionVal.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1676,6 +1849,7 @@ const App: React.FC = () => {
   const [companies, setCompanies] = useState<string[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [deductions, setDeductions] = useState<DeductionRecord[]>([]);
   
   // Modals State
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -1714,6 +1888,7 @@ const App: React.FC = () => {
     setEmployees(allEmps);
     setCompanies(getCompanies());
     setLeaveRequests(getLeaveRequests());
+    setDeductions(getDeductions());
     const start = formatDateLocal(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
     const end = formatDateLocal(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0));
     setAttendance(getAttendanceRange(start, end));
@@ -1875,6 +2050,7 @@ const App: React.FC = () => {
                { id: 'timesheet', icon: Calendar, label: 'Monthly Timesheet' },
                { id: 'leave', icon: FileText, label: 'Leave Management' },
                { id: 'payroll', icon: DollarSign, label: 'Payroll Register' },
+               { id: 'deductions', icon: Wallet, label: 'Deductions' },
                { id: 'reports', icon: BarChart3, label: 'Reports' },
                { id: 'about', icon: AlertCircle, label: 'About' }
            ].map(tab => (
@@ -2280,7 +2456,14 @@ const App: React.FC = () => {
                                       const gross = basic + housing + transport + other + airTicket + leaveSalary;
                                       
                                       const absentDays = empRecs.filter(r => r.status === AttendanceStatus.ABSENT || r.status === AttendanceStatus.UNPAID_LEAVE).length;
-                                      const deduction = (gross / 30) * absentDays;
+                                      
+                                      const empDeds = deductions.filter(d => {
+                                            const dDate = new Date(d.date);
+                                            return d.employeeId === emp.id && dDate.getMonth() === currentDate.getMonth() && dDate.getFullYear() === currentDate.getFullYear();
+                                      });
+                                      const variableDeductions = empDeds.reduce((acc, curr) => acc + curr.amount, 0);
+
+                                      const deduction = ((gross / 30) * absentDays) + variableDeductions;
                                       const net = gross - deduction + totalAdditions;
 
                                       return (
@@ -2308,6 +2491,10 @@ const App: React.FC = () => {
                       </div>
                   </div>
               </div>
+          )}
+
+          {activeTab === 'deductions' && (
+              <DeductionsView deductions={deductions} employees={employees} onRefresh={handleRefresh} />
           )}
           
           {activeTab === 'reports' && <ReportsView employees={employees} attendance={attendance} />}

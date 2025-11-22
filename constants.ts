@@ -156,5 +156,6 @@ export const STORAGE_KEYS = {
   PUBLIC_HOLIDAYS: 'shiftsync_public_holidays_v1',
   COMPANIES: 'shiftsync_companies_v1',
   USERS: 'shiftsync_users_v1',
-  ABOUT: 'shiftsync_about_v1'
+  ABOUT: 'shiftsync_about_v1',
+  DEDUCTIONS: 'shiftsync_deductions_v1'
 };
