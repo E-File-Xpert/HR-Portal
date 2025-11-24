@@ -87,6 +87,70 @@ const calculateAdditionalEarnings = (records: AttendanceRecord[], team: string) 
     return { overtimePay, holidayPay, weekOffPay, totalOTHours };
 };
 
+// Unified Payroll Calculation Logic
+const calculatePayroll = (
+    employee: Employee, 
+    allAttendance: AttendanceRecord[], 
+    allDeductions: DeductionRecord[], 
+    month: number, 
+    year: number
+) => {
+    // Filter records for this employee and month
+    const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const end = `${year}-${String(month + 1).padStart(2, '0')}-${new Date(year, month + 1, 0).getDate()}`;
+    
+    const empRecs = allAttendance.filter(r => 
+        r.employeeId === employee.id && r.date >= start && r.date <= end
+    );
+
+    // Earnings from Salary Structure
+    const basic = employee.salary?.basic || 0;
+    const housing = employee.salary?.housing || 0;
+    const transport = employee.salary?.transport || 0;
+    const airTicket = employee.salary?.airTicket || 0;
+    const leaveSalary = employee.salary?.leaveSalary || 0;
+    const other = employee.salary?.other || 0;
+    
+    const gross = basic + housing + transport + airTicket + leaveSalary + other;
+
+    // Additional Earnings (OT, etc)
+    const { overtimePay, holidayPay, weekOffPay, totalOTHours } = calculateAdditionalEarnings(empRecs, employee.team);
+    const totalAdditions = overtimePay + holidayPay + weekOffPay;
+
+    // Deductions Logic
+    // Absent, UL, AL, EL are treated as Unpaid Days
+    const unpaidDaysCount = empRecs.filter(r => 
+        r.status === AttendanceStatus.ABSENT || 
+        r.status === AttendanceStatus.UNPAID_LEAVE ||
+        r.status === AttendanceStatus.ANNUAL_LEAVE ||
+        r.status === AttendanceStatus.EMERGENCY_LEAVE
+    ).length;
+
+    // Variable Deductions (Loans, fines, etc)
+    const empDeds = allDeductions.filter(d => {
+        const dDate = new Date(d.date);
+        return d.employeeId === employee.id && dDate.getMonth() === month && dDate.getFullYear() === year;
+    });
+    const variableDeductionsTotal = empDeds.reduce((acc, curr) => acc + curr.amount, 0);
+
+    // Calculate Deduction Amount (Gross / 30 * unpaid days)
+    const unpaidDeductionAmount = (gross / 30) * unpaidDaysCount;
+    const totalDeductions = unpaidDeductionAmount + variableDeductionsTotal;
+
+    const netSalary = gross - totalDeductions + totalAdditions;
+
+    return {
+        basic, housing, transport, airTicket, leaveSalary, other,
+        gross,
+        overtimePay, holidayPay, weekOffPay, totalOTHours, totalAdditions,
+        unpaidDaysCount, unpaidDeductionAmount,
+        variableDeductions: empDeds, variableDeductionsTotal,
+        totalDeductions,
+        netSalary,
+        empRecs
+    };
+};
+
 const getDateColor = (dateStr: string | undefined, type: 'standard' | 'passport' = 'standard') => {
     if (!dateStr) return 'text-gray-500';
     const today = new Date();
@@ -321,6 +385,7 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, onDelete, employeeName
 };
 
 const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
+    // ... (BulkImportModal content remains same)
     const [csv, setCsv] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -374,6 +439,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
 };
 
 const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
+    // ... (EmployeeImportModal content remains same)
     const [csv, setCsv] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -435,6 +501,7 @@ const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
 };
 
 const HolidayManagementModal = ({ isOpen, onClose }: any) => {
+    // ... (HolidayManagementModal content remains same)
     const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
     const [newDate, setNewDate] = useState('');
     const [newName, setNewName] = useState('');
@@ -493,6 +560,7 @@ const HolidayManagementModal = ({ isOpen, onClose }: any) => {
 };
 
 const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
+    // ... (CopyAttendanceModal content remains same)
     const [sourceDate, setSourceDate] = useState(formatDateLocal(new Date()));
     const [targetDate, setTargetDate] = useState(formatDateLocal(new Date(Date.now() + 86400000)));
 
@@ -534,6 +602,7 @@ const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
 }
 
 const LeaveRequestModal = ({ employees, onClose, onSave, currentUser }: any) => {
+    // ... (LeaveRequestModal content remains same)
     const [req, setReq] = useState<any>({
         type: AttendanceStatus.ANNUAL_LEAVE,
         startDate: formatDateLocal(new Date()),
@@ -579,6 +648,7 @@ const LeaveRequestModal = ({ employees, onClose, onSave, currentUser }: any) => 
 };
 
 const DeductionModal = ({ isOpen, onClose, employees, onSave }: any) => {
+    // ... (DeductionModal content remains same)
     const [form, setForm] = useState({
         employeeId: '',
         date: new Date().toISOString().split('T')[0],
@@ -644,6 +714,7 @@ const DeductionModal = ({ isOpen, onClose, employees, onSave }: any) => {
 };
 
 const DeductionsView = ({ deductions, employees, onRefresh }: any) => {
+    // ... (DeductionsView content remains same)
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
 
@@ -728,136 +799,338 @@ const DeductionsView = ({ deductions, employees, onRefresh }: any) => {
     );
 };
 
-const UserManagementModal = ({ isOpen, onClose }: any) => {
-    const [users, setUsers] = useState(getSystemUsers());
-    const [isEditing, setIsEditing] = useState(false);
-    const [originalUsername, setOriginalUsername] = useState('');
-    const [formData, setFormData] = useState({ username: '', password: '', name: '', role: UserRole.HR });
-    const [permissions, setPermissions] = useState({
-        canViewDashboard: true, canManageEmployees: false, canViewDirectory: true,
-        canManageAttendance: false, canViewTimesheet: true, canManageLeaves: false,
-        canViewPayroll: false, canManagePayroll: false, canViewReports: false,
-        canManageUsers: false, canManageSettings: false
-    });
-    const [searchTerm, setSearchTerm] = useState('');
+// --- Missing Components Implementation ---
 
-    const togglePermission = (key: string) => setPermissions(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+const ReportsView = ({ employees, attendance }: any) => {
+    // Basic stats for now
+    const activeStaff = employees.filter((e: any) => e.active).length;
+    const inactiveStaff = employees.filter((e: any) => !e.active).length;
+    
+    // Attendance stats for current month (rough approximation based on loaded attendance)
+    const presentCount = attendance.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
+    const absentCount = attendance.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
+
+    return (
+        <div className="space-y-6">
+             <h2 className="text-xl font-bold text-gray-800">Reports & Analytics</h2>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                 <div className="bg-white p-4 rounded-xl shadow-sm border">
+                     <div className="text-gray-500 text-sm">Active Staff</div>
+                     <div className="text-2xl font-bold">{activeStaff}</div>
+                 </div>
+                 <div className="bg-white p-4 rounded-xl shadow-sm border">
+                     <div className="text-gray-500 text-sm">Ex-Employees</div>
+                     <div className="text-2xl font-bold">{inactiveStaff}</div>
+                 </div>
+                 <div className="bg-white p-4 rounded-xl shadow-sm border">
+                     <div className="text-gray-500 text-sm">Total Presents (View Range)</div>
+                     <div className="text-2xl font-bold text-green-600">{presentCount}</div>
+                 </div>
+                 <div className="bg-white p-4 rounded-xl shadow-sm border">
+                     <div className="text-gray-500 text-sm">Total Absents (View Range)</div>
+                     <div className="text-2xl font-bold text-red-600">{absentCount}</div>
+                 </div>
+             </div>
+             <div className="bg-white p-8 rounded-xl shadow-sm border text-center text-gray-500 italic">
+                 Detailed charts and exportable reports coming soon.
+             </div>
+        </div>
+    );
+};
+
+const AboutView = ({ currentUser }: any) => {
+    const [data, setData] = useState<AboutData>(getAboutData());
+    const [isEditing, setIsEditing] = useState(false);
 
     const handleSave = () => {
-        if (!formData.username || !formData.password || !formData.name) return;
-        try {
-            const updatedUser = { ...formData, active: true, permissions };
-            let updatedList;
-            if (isEditing) {
-                updatedList = updateSystemUser(originalUsername, updatedUser);
-            } else {
-                updatedList = addSystemUser(updatedUser);
-            }
-            setUsers(updatedList);
-            resetForm();
-        } catch (e: any) { alert(e.message); }
-    };
-
-    const handleEdit = (user: SystemUser) => {
-        setFormData({ username: user.username, password: user.password, name: user.name, role: user.role });
-        setPermissions(user.permissions);
-        setOriginalUsername(user.username);
-        setIsEditing(true);
-    };
-
-    const resetForm = () => {
-        setFormData({ username: '', password: '', name: '', role: UserRole.HR });
+        saveAboutData(data);
         setIsEditing(false);
-        setOriginalUsername('');
     };
 
-    const handleDelete = (username: string) => {
-        try {
-            if (confirm(`Delete user ${username}?`)) {
-                const updated = deleteSystemUser(username);
-                setUsers(updated);
-            }
-        } catch (e: any) { alert(e.message); }
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const b64 = await readFileAsBase64(e.target.files[0]);
+            setData({ ...data, profileImage: b64 });
+        }
     };
 
-    if (!isOpen) return null;
+    return (
+        <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 h-32 relative">
+                    {currentUser.role === UserRole.CREATOR && (
+                         <button onClick={() => setIsEditing(!isEditing)} className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition-colors">
+                             <Edit className="w-5 h-5" />
+                         </button>
+                    )}
+                </div>
+                <div className="px-8 pb-8">
+                    <div className="relative -mt-16 mb-6 flex justify-center">
+                        <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-gray-200 overflow-hidden relative group">
+                            {data.profileImage ? (
+                                <img src={data.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100"><User className="w-16 h-16"/></div>
+                            )}
+                            {isEditing && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                    <label className="cursor-pointer text-white text-xs flex flex-col items-center">
+                                        <Camera className="w-6 h-6 mb-1"/> Change
+                                        <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-    const filteredUsers = users.filter(u => 
-        u.username.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        u.name.toLowerCase().includes(searchTerm.toLowerCase())
+                    {isEditing ? (
+                        <div className="space-y-4 max-w-lg mx-auto">
+                            <input type="text" value={data.name} onChange={e => setData({...data, name: e.target.value})} className="w-full p-2 border rounded font-bold text-center text-xl" placeholder="Name" />
+                            <input type="text" value={data.title} onChange={e => setData({...data, title: e.target.value})} className="w-full p-2 border rounded text-center text-indigo-600" placeholder="Title" />
+                            <textarea value={data.bio} onChange={e => setData({...data, bio: e.target.value})} className="w-full p-2 border rounded h-32 text-center" placeholder="Bio"></textarea>
+                            <input type="text" value={data.email} onChange={e => setData({...data, email: e.target.value})} className="w-full p-2 border rounded text-center" placeholder="Email" />
+                            <input type="text" value={data.contactInfo} onChange={e => setData({...data, contactInfo: e.target.value})} className="w-full p-2 border rounded text-center" placeholder="Contact Info" />
+                            <button onClick={handleSave} className="w-full bg-indigo-600 text-white py-2 rounded font-bold">Save Changes</button>
+                        </div>
+                    ) : (
+                        <div className="text-center space-y-4">
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">{data.name}</h1>
+                                <p className="text-indigo-600 font-medium">{data.title}</p>
+                            </div>
+                            <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">{data.bio}</p>
+                            <div className="flex flex-col md:flex-row justify-center items-center gap-4 text-sm text-gray-500 pt-4 border-t">
+                                <span>{data.email}</span>
+                                <span className="hidden md:inline">•</span>
+                                <span>{data.contactInfo}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+            <div className="text-center mt-8 text-xs text-gray-400">
+                v1.0.0 &copy; 2025 ShiftSync. All rights reserved.
+            </div>
+        </div>
     );
+};
+
+const RehireModal = ({ employee, onClose, onConfirm }: any) => {
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [reason, setReason] = useState('');
+
+    if (!employee) return null;
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl p-6 flex flex-col max-h-[90vh]">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold">System User Management</h3>
+            <div className="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl">
+                <h3 className="font-bold text-lg mb-4">Re-join Employee: {employee.name}</h3>
+                <div className="space-y-4 mb-6">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Re-joining Date</label>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border rounded" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Reason / Notes</label>
+                        <textarea value={reason} onChange={e => setReason(e.target.value)} className="w-full p-2 border rounded h-24" placeholder="e.g., Returning from vacation, Contract renewed"></textarea>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+                    <button onClick={() => onConfirm(employee.id, date, reason)} className="px-4 py-2 bg-green-600 text-white rounded font-bold">Confirm Re-join</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
+    const [step, setStep] = useState(1);
+    const [formData, setFormData] = useState<Partial<Employee>>({
+        name: '', code: '', designation: '', department: '',
+        company: companies[0] || '', joiningDate: new Date().toISOString().split('T')[0],
+        type: StaffType.WORKER, status: 'Active', team: 'Internal Team',
+        workLocation: '', leaveBalance: 0,
+        salary: { basic: 0, housing: 0, transport: 0, other: 0, airTicket: 0, leaveSalary: 0 },
+        active: true, documents: {}
+    });
+
+    const handleSave = () => {
+        saveEmployee({ ...formData, id: Math.random().toString(36).substr(2, 9) } as Employee);
+        onComplete();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl h-[80vh] flex flex-col rounded-xl shadow-2xl">
+                <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                    <h3 className="font-bold text-lg">Onboard New Employee</h3>
                     <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
                 </div>
-                
-                <div className={`bg-gray-50 p-4 rounded-lg mb-6 border ${isEditing ? 'border-blue-300 ring-1 ring-blue-200' : 'border-gray-200'}`}>
-                    <div className="flex justify-between items-center mb-4">
-                        <h4 className="font-bold text-sm">{isEditing ? 'Edit User' : 'Create New User'}</h4>
-                        {isEditing && <button onClick={resetForm} className="text-xs text-gray-500 underline">Cancel Edit</button>}
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <input placeholder="Username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="p-2 border rounded text-sm" />
-                        <input placeholder="Password" type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="p-2 border rounded text-sm" />
-                        <input placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="p-2 border rounded text-sm" />
-                        <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})} className="p-2 border rounded text-sm">
-                            {Object.values(UserRole).filter(r => r !== UserRole.CREATOR).map(r => <option key={r} value={r}>{r}</option>)}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <input placeholder="Name" className="p-2 border rounded" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                        <input placeholder="Code" className="p-2 border rounded" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} />
+                        <select className="p-2 border rounded" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})}>
+                            {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
                         </select>
+                        <select className="p-2 border rounded" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as StaffType})}>
+                            <option value={StaffType.WORKER}>Worker</option>
+                            <option value={StaffType.OFFICE}>Office Staff</option>
+                        </select>
+                         <select className="p-2 border rounded" value={formData.team} onChange={e => setFormData({...formData, team: e.target.value as any})}>
+                            <option value="Internal Team">Internal Team</option>
+                            <option value="External Team">External Team</option>
+                            <option value="Office Staff">Office Staff</option>
+                        </select>
+                        <input placeholder="Designation" className="p-2 border rounded" value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} />
+                         <input placeholder="Department" className="p-2 border rounded" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} />
+                         <input type="date" className="p-2 border rounded" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} />
                     </div>
-                    
-                    <div className="mb-4">
-                        <p className="text-xs font-bold text-gray-500 uppercase mb-2">Access Permissions</p>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                            {Object.keys(permissions).map((key) => (
-                                <div key={key} onClick={() => togglePermission(key)} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1 rounded select-none">
-                                    {permissions[key as keyof typeof permissions] ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-gray-400" />}
-                                    <span className="text-xs text-gray-700">{key.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}</span>
-                                </div>
-                            ))}
+                    <div className="pt-4 border-t">
+                        <h4 className="font-bold mb-2">Salary Structure</h4>
+                        <div className="grid grid-cols-3 gap-4">
+                            <input type="number" placeholder="Basic" className="p-2 border rounded" value={formData.salary?.basic} onChange={e => setFormData({...formData, salary: {...formData.salary!, basic: Number(e.target.value)}})} />
+                            <input type="number" placeholder="Housing" className="p-2 border rounded" value={formData.salary?.housing} onChange={e => setFormData({...formData, salary: {...formData.salary!, housing: Number(e.target.value)}})} />
+                            <input type="number" placeholder="Transport" className="p-2 border rounded" value={formData.salary?.transport} onChange={e => setFormData({...formData, salary: {...formData.salary!, transport: Number(e.target.value)}})} />
                         </div>
                     </div>
-                    <button onClick={handleSave} className={`w-full text-white py-2 rounded text-sm font-medium transition-colors ${isEditing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-                        {isEditing ? 'Update User' : 'Create System User'}
-                    </button>
                 </div>
+                <div className="p-4 border-t flex justify-end gap-2 bg-gray-50 rounded-b-xl">
+                    <button onClick={onClose} className="px-4 py-2 text-gray-600">Cancel</button>
+                    <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded">Complete Onboarding</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
-                <div className="mb-4 flex justify-between items-center">
-                    <div className="relative">
-                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                         <input 
-                            type="text" 
-                            placeholder="Search users..." 
-                            value={searchTerm} 
-                            onChange={e => setSearchTerm(e.target.value)} 
-                            className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
-                         />
+const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
+    const [details, setDetails] = useState<OffboardingDetails>({
+        type: 'Resignation', exitDate: new Date().toISOString().split('T')[0], reason: '',
+        gratuity: 0, leaveEncashment: 0, salaryDues: 0, otherDues: 0, deductions: 0, netSettlement: 0, assetsReturned: false, notes: ''
+    });
+
+    const handleSubmit = () => {
+        offboardEmployee(employee.id, details);
+        onComplete();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-2xl">
+                <h3 className="font-bold text-lg mb-4">Offboard: {employee.name}</h3>
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                    <div className="grid grid-cols-2 gap-4">
+                         <select className="p-2 border rounded" value={details.type} onChange={e => setDetails({...details, type: e.target.value as any})}>
+                            <option>Resignation</option><option>Termination</option><option>End of Contract</option>
+                        </select>
+                        <input type="date" className="p-2 border rounded" value={details.exitDate} onChange={e => setDetails({...details, exitDate: e.target.value})} />
                     </div>
-                    <div className="text-sm text-gray-500">Total Users: <span className="font-bold">{filteredUsers.filter(u => u.role !== UserRole.CREATOR).length}</span></div>
+                    <textarea className="w-full p-2 border rounded" placeholder="Reason" value={details.reason} onChange={e => setDetails({...details, reason: e.target.value})} />
+                    <div className="grid grid-cols-2 gap-4">
+                        <input type="number" placeholder="Gratuity" className="p-2 border rounded" value={details.gratuity} onChange={e => setDetails({...details, gratuity: Number(e.target.value)})} />
+                        <input type="number" placeholder="Salary Dues" className="p-2 border rounded" value={details.salaryDues} onChange={e => setDetails({...details, salaryDues: Number(e.target.value)})} />
+                    </div>
                 </div>
+                <div className="flex justify-end gap-2 mt-6">
+                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+                    <button onClick={handleSubmit} className="px-4 py-2 bg-red-600 text-white rounded">Confirm Exit</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
-                <div className="overflow-y-auto flex-1">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-100 font-bold sticky top-0">
-                            <tr><th className="p-2">Username</th><th className="p-2">Name</th><th className="p-2">Role</th><th className="p-2 text-right">Action</th></tr>
-                        </thead>
-                        <tbody>
-                            {filteredUsers.filter(u => u.role !== UserRole.CREATOR).map(u => (
-                                <tr key={u.username} className={`border-b ${isEditing && originalUsername === u.username ? 'bg-blue-50' : ''}`}>
-                                    <td className="p-2 font-mono">{u.username}</td>
-                                    <td className="p-2">{u.name}</td>
-                                    <td className="p-2"><span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{u.role}</span></td>
-                                    <td className="p-2 text-right flex justify-end gap-2">
-                                        <button onClick={() => handleEdit(u)} className="text-blue-500 hover:bg-blue-50 p-1 rounded"><Edit className="w-4 h-4" /></button>
-                                        {u.username !== 'admin' && <button onClick={() => handleDelete(u.username)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4" /></button>}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+const UserManagementModal = ({ isOpen, onClose }: any) => {
+    const [users, setUsers] = useState(getSystemUsers());
+    const [newUser, setNewUser] = useState<Partial<SystemUser>>({ username: '', password: '', name: '', role: UserRole.HR });
+
+    if (!isOpen) return null;
+
+    const handleAdd = () => {
+        if (!newUser.username || !newUser.password) return;
+        try {
+            const updated = addSystemUser({ ...newUser, active: true, permissions: { canViewDashboard: true } } as SystemUser);
+            setUsers(updated);
+            setNewUser({ username: '', password: '', name: '', role: UserRole.HR });
+        } catch (e) { alert(e); }
+    };
+
+    const handleDelete = (u: string) => {
+        if(window.confirm("Delete user?")) setUsers(deleteSystemUser(u));
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg p-6 rounded-xl shadow-2xl">
+                 <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg">System Users</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
+                </div>
+                <div className="space-y-4 mb-4">
+                    <div className="flex gap-2">
+                        <input placeholder="Username" className="p-2 border rounded flex-1" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} />
+                        <input placeholder="Password" className="p-2 border rounded flex-1" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
+                    </div>
+                     <button onClick={handleAdd} className="w-full bg-indigo-600 text-white py-2 rounded">Add User</button>
+                </div>
+                <div className="space-y-2">
+                    {users.map(u => (
+                        <div key={u.username} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
+                            <span>{u.username} ({u.role})</span>
+                            <button onClick={() => handleDelete(u.username)} className="text-red-500"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any) => {
+    const [newCo, setNewCo] = useState('');
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-md p-6 rounded-xl shadow-2xl">
+                 <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg">Manage Companies</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
+                </div>
+                <div className="flex gap-2 mb-4">
+                    <input className="flex-1 p-2 border rounded" value={newCo} onChange={e => setNewCo(e.target.value)} placeholder="New Company Name" />
+                    <button onClick={() => { if(newCo) { onDataChange(addCompany(newCo)); setNewCo(''); } }} className="bg-indigo-600 text-white px-4 rounded">Add</button>
+                </div>
+                <ul className="space-y-2 max-h-60 overflow-y-auto">
+                    {companies.map((c: string) => (
+                        <li key={c} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
+                            <span className="text-sm">{c}</span>
+                            <button onClick={() => { if(window.confirm('Delete?')) onDataChange(deleteCompany(c)); }} className="text-red-500"><Trash2 className="w-4 h-4" /></button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
+const ExEmployeeDetailsModal = ({ employee, onClose }: any) => {
+    if (!employee) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+             <div className="bg-white w-full max-w-md p-6 rounded-xl shadow-2xl">
+                 <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg">Exit Details: {employee.name}</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
+                </div>
+                <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span>Exit Date:</span> <strong>{employee.offboardingDetails?.exitDate}</strong></div>
+                    <div className="flex justify-between"><span>Type:</span> <strong>{employee.offboardingDetails?.type}</strong></div>
+                    <div className="bg-gray-50 p-2 rounded italic text-gray-600 my-2">{employee.offboardingDetails?.reason}</div>
+                    <div className="border-t pt-2">
+                        <div className="flex justify-between"><span>Final Settlement:</span> <strong className="text-green-600">{employee.offboardingDetails?.netSettlement}</strong></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -868,879 +1141,75 @@ const ViewEmployeeModal = ({ employee, onClose }: any) => {
     if (!employee) return null;
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-             <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
-                {/* Header */}
-                <div className="flex justify-between items-start mb-6 pb-4 border-b">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900">{employee.name}</h2>
-                        <div className="flex gap-2 mt-1">
-                             <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs font-mono">{employee.code}</span>
-                             <span className={`px-2 py-0.5 rounded text-xs font-bold ${employee.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{employee.status}</span>
-                        </div>
-                    </div>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600"/></button>
+             <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl">{employee.name}</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Employment Details */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-gray-700 border-b pb-1">Employment Details</h3>
-                        <div className="grid grid-cols-2 gap-y-3 text-sm">
-                             <div className="text-gray-500">Designation</div><div className="font-medium">{employee.designation}</div>
-                             <div className="text-gray-500">Department</div><div className="font-medium">{employee.department}</div>
-                             <div className="text-gray-500">Company</div><div className="font-medium">{employee.company}</div>
-                             <div className="text-gray-500">Team</div><div className="font-medium">{employee.team}</div>
-                             <div className="text-gray-500">Joining Date</div><div className="font-medium">{employee.joiningDate}</div>
-                             <div className="text-gray-500">Work Location</div><div className="font-medium">{employee.workLocation}</div>
-                             <div className="text-gray-500">Type</div><div className="font-medium">{employee.type}</div>
-                             <div className="text-gray-500">Leave Balance</div><div className="font-medium text-indigo-600">{employee.leaveBalance}</div>
-                        </div>
-                    </div>
-
-                    {/* Financials */}
-                    <div className="space-y-4">
-                         <h3 className="font-bold text-gray-700 border-b pb-1">Financial Information</h3>
-                         <div className="grid grid-cols-2 gap-y-3 text-sm">
-                             <div className="text-gray-500">Basic Salary</div><div className="font-mono">{employee.salary?.basic?.toLocaleString()} AED</div>
-                             <div className="text-gray-500">Housing</div><div className="font-mono">{employee.salary?.housing?.toLocaleString()} AED</div>
-                             <div className="text-gray-500">Transport</div><div className="font-mono">{employee.salary?.transport?.toLocaleString()} AED</div>
-                             <div className="text-gray-500">Air Ticket</div><div className="font-mono">{employee.salary?.airTicket?.toLocaleString()} AED</div>
-                             <div className="text-gray-500">Leave Salary</div><div className="font-mono">{employee.salary?.leaveSalary?.toLocaleString()} AED</div>
-                             <div className="text-gray-500">Other Allowances</div><div className="font-mono">{employee.salary?.other?.toLocaleString()} AED</div>
-                             <div className="text-gray-500 font-bold pt-2">Total Salary</div><div className="font-bold font-mono pt-2 text-green-600">
-                                 {(
-                                     (employee.salary?.basic || 0) + 
-                                     (employee.salary?.housing || 0) + 
-                                     (employee.salary?.transport || 0) + 
-                                     (employee.salary?.other || 0) + 
-                                     (employee.salary?.airTicket || 0) + 
-                                     (employee.salary?.leaveSalary || 0)
-                                 ).toLocaleString()} AED
-                             </div>
-                             <div className="col-span-2 pt-2 border-t mt-2">
-                                 <div className="text-xs text-gray-400 uppercase mb-1">Bank Details</div>
-                                 <div className="flex justify-between">
-                                     <span>{employee.bankName || 'Cash'}</span>
-                                     <span className="font-mono">{employee.iban || '-'}</span>
-                                 </div>
-                             </div>
-                         </div>
-                    </div>
-
-                    {/* Documents */}
-                    <div className="space-y-4 md:col-span-2">
-                        <h3 className="font-bold text-gray-700 border-b pb-1">Documents</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                            <div className="bg-gray-50 p-3 rounded border">
-                                <div className="text-xs text-gray-500 uppercase mb-1">Emirates ID</div>
-                                <div className="font-mono font-medium">{employee.documents?.emiratesId || '-'}</div>
-                                <div className={`text-xs mt-1 ${getDateColor(employee.documents?.emiratesIdExpiry)}`}>Expires: {employee.documents?.emiratesIdExpiry || '-'}</div>
-                            </div>
-                            <div className="bg-gray-50 p-3 rounded border">
-                                <div className="text-xs text-gray-500 uppercase mb-1">Passport</div>
-                                <div className="font-mono font-medium">{employee.documents?.passportNumber || '-'}</div>
-                                <div className={`text-xs mt-1 ${getDateColor(employee.documents?.passportExpiry, 'passport')}`}>Expires: {employee.documents?.passportExpiry || '-'}</div>
-                            </div>
-                            <div className="bg-gray-50 p-3 rounded border">
-                                <div className="text-xs text-gray-500 uppercase mb-1">Labour Card</div>
-                                <div className="font-mono font-medium">{employee.documents?.labourCardNumber || '-'}</div>
-                                <div className={`text-xs mt-1 ${getDateColor(employee.documents?.labourCardExpiry)}`}>Expires: {employee.documents?.labourCardExpiry || '-'}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-             </div>
-        </div>
-    );
-}
-
-const ExEmployeeDetailsModal = ({ employee, onClose }: any) => {
-    const [previewDoc, setPreviewDoc] = useState(null);
-    const details = employee?.offboardingDetails;
-    if (!employee || !details) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col max-h-[85vh]">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                <div className="grid grid-cols-2 gap-6 text-sm">
                     <div>
-                        <h3 className="text-lg font-bold text-gray-900">{employee.name}</h3>
-                        <p className="text-sm text-gray-500">{employee.designation} - {employee.code}</p>
-                    </div>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
-                </div>
-                
-                <div className="overflow-y-auto flex-1 space-y-6">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="bg-gray-50 p-3 rounded">
-                            <span className="block text-xs font-bold text-gray-500 uppercase Offboarding Type">Offboarding Type</span>
-                            <span className="font-medium text-gray-900">{details.type}</span>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded">
-                            <span className="block text-xs font-bold text-gray-500 uppercase Exit Date">Exit Date</span>
-                            <span className="font-medium text-gray-900">{details.exitDate}</span>
+                        <h4 className="font-bold text-gray-500 uppercase text-xs mb-2">Personal & Work</h4>
+                        <div className="space-y-2">
+                            <p><span className="text-gray-500">Code:</span> {employee.code}</p>
+                            <p><span className="text-gray-500">Designation:</span> {employee.designation}</p>
+                            <p><span className="text-gray-500">Company:</span> {employee.company}</p>
+                            <p><span className="text-gray-500">Joining:</span> {employee.joiningDate}</p>
                         </div>
                     </div>
-
-                    <div>
-                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Reason & Notes</h4>
-                        <div className="bg-gray-50 p-4 rounded border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap">
-                            {details.reason}
-                            {details.notes && <div className="mt-2 pt-2 border-t border-gray-200 text-gray-500 text-xs">{details.notes}</div>}
+                     <div>
+                        <h4 className="font-bold text-gray-500 uppercase text-xs mb-2">Documents</h4>
+                        <div className="space-y-2">
+                            <p><span className="text-gray-500">EID Expiry:</span> {employee.documents?.emiratesIdExpiry || '-'}</p>
+                            <p><span className="text-gray-500">Passport Expiry:</span> {employee.documents?.passportExpiry || '-'}</p>
                         </div>
-                    </div>
-
-                    <div>
-                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Final Settlement</h4>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                            <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Gratuity</span> AED {details.gratuity}</div>
-                            <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Leave Encash</span> AED {details.leaveEncashment}</div>
-                            <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Salary Dues</span> AED {details.salaryDues}</div>
-                            <div className="p-2 border rounded"><span className="block text-xs text-gray-500">Other Dues</span> AED {details.otherDues}</div>
-                            <div className="p-2 border rounded"><span className="block text-xs text-red-500">Deductions</span> AED {details.deductions}</div>
-                            <div className="p-2 border rounded bg-green-50"><span className="block text-xs text-green-700 font-bold">Net Pay</span> AED {details.netSettlement}</div>
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-sm">
-                            {details.assetsReturned ? <CheckCircle className="w-4 h-4 text-green-600"/> : <AlertCircle className="w-4 h-4 text-red-600"/>}
-                            <span>Assets Returned: <strong>{details.assetsReturned ? 'Yes' : 'No'}</strong></span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Uploaded Documents</h4>
-                        {details.documents && details.documents.length > 0 ? (
-                            <ul className="space-y-2">
-                                {details.documents.map((doc: any, idx: number) => (
-                                    <li key={idx} className="flex justify-between items-center p-2 border rounded hover:bg-gray-50">
-                                        <span className="text-sm text-gray-700 truncate max-w-[300px] flex items-center gap-2">
-                                            <FileText className="w-4 h-4 text-blue-500" /> {doc.name}
-                                        </span>
-                                        <button onClick={() => setPreviewDoc(doc.data)} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium hover:bg-blue-100">View</button>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : <p className="text-sm text-gray-400 italic">No documents attached.</p>}
                     </div>
                 </div>
             </div>
-            {previewDoc && <DocumentPreviewModal isOpen={true} onClose={() => setPreviewDoc(null)} attachment={previewDoc} />}
         </div>
     );
 };
 
 const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
-    const [formData, setFormData] = useState({ ...employee });
-    
-    const handleChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
-    
-    const handleSalaryChange = (field: string, value: number) => 
-        setFormData((prev: any) => ({ ...prev, salary: { ...prev.salary, [field]: value } }));
-    
-    const handleDocChange = (field: string, value: string) => 
-        setFormData((prev: any) => ({ ...prev, documents: { ...prev.documents, [field]: value } }));
+    const [data, setData] = useState<Employee>(employee);
+
+    const handleSave = () => onSave(data);
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl p-6 my-8">
-                <div className="flex justify-between mb-6">
-                    <h3 className="font-bold text-lg">Edit Employee: {employee.name}</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <input className="p-2 border rounded" placeholder="Name" value={formData.name} onChange={e => handleChange('name', e.target.value)} />
-                    <input className="p-2 border rounded" placeholder="Designation" value={formData.designation} onChange={e => handleChange('designation', e.target.value)} />
-                    <input className="p-2 border rounded" placeholder="Department" value={formData.department} onChange={e => handleChange('department', e.target.value)} />
-                    <select className="p-2 border rounded" value={formData.company} onChange={e => handleChange('company', e.target.value)}>
-                        {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    <select className="p-2 border rounded" value={formData.team} onChange={e => handleChange('team', e.target.value)}>
-                        <option value="Internal Team">Internal Team</option>
-                        <option value="External Team">External Team</option>
-                        <option value="Office Staff">Office Staff</option>
-                    </select>
-                    <input className="p-2 border rounded" placeholder="Work Location" value={formData.workLocation} onChange={e => handleChange('workLocation', e.target.value)} />
-                </div>
-
-                <h4 className="font-bold text-sm mb-2 mt-4">Salary Structure</h4>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div><label className="text-xs font-bold text-gray-500">Basic</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.basic} onChange={e => handleSalaryChange('basic', parseFloat(e.target.value) || 0)} /></div>
-                    <div><label className="text-xs font-bold text-gray-500">Housing</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.housing} onChange={e => handleSalaryChange('housing', parseFloat(e.target.value) || 0)} /></div>
-                    <div><label className="text-xs font-bold text-gray-500">Transport</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.transport} onChange={e => handleSalaryChange('transport', parseFloat(e.target.value) || 0)} /></div>
-                    <div><label className="text-xs font-bold text-gray-500">Air Ticket</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.airTicket} onChange={e => handleSalaryChange('airTicket', parseFloat(e.target.value) || 0)} /></div>
-                    <div><label className="text-xs font-bold text-gray-500">Leave Payment</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.leaveSalary} onChange={e => handleSalaryChange('leaveSalary', parseFloat(e.target.value) || 0)} /></div>
-                    <div><label className="text-xs font-bold text-gray-500">Other</label><input type="number" className="w-full p-2 border rounded" value={formData.salary?.other} onChange={e => handleSalaryChange('other', parseFloat(e.target.value) || 0)} /></div>
-                </div>
-
-                <h4 className="font-bold text-sm mb-2 mt-4">Documents & Dates</h4>
-                <div className="grid grid-cols-2 gap-4">
-                    <div><label className="text-xs">Emirates ID</label><input className="w-full p-2 border rounded" value={formData.documents?.emiratesId || ''} onChange={e => handleDocChange('emiratesId', e.target.value)} /></div>
-                    <div><label className="text-xs">EID Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.emiratesIdExpiry || ''} onChange={e => handleDocChange('emiratesIdExpiry', e.target.value)} /></div>
-                    <div><label className="text-xs">Passport No</label><input className="w-full p-2 border rounded" value={formData.documents?.passportNumber || ''} onChange={e => handleDocChange('passportNumber', e.target.value)} /></div>
-                    <div><label className="text-xs">Passport Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.passportExpiry || ''} onChange={e => handleDocChange('passportExpiry', e.target.value)} /></div>
-                    <div><label className="text-xs">Labour Card No</label><input className="w-full p-2 border rounded" value={formData.documents?.labourCardNumber || ''} onChange={e => handleDocChange('labourCardNumber', e.target.value)} /></div>
-                    <div><label className="text-xs">LC Expiry</label><input type="date" className="w-full p-2 border rounded" value={formData.documents?.labourCardExpiry || ''} onChange={e => handleDocChange('labourCardExpiry', e.target.value)} /></div>
-                    <div><label className="text-xs">Vacation Date</label><input type="date" className="w-full p-2 border rounded" value={formData.vacationScheduledDate || ''} onChange={e => handleChange('vacationScheduledDate', e.target.value)} /></div>
-                </div>
-
-                <div className="flex justify-end gap-2 mt-4">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={() => onSave(formData)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const AboutView = ({ currentUser }: { currentUser: SystemUser }) => {
-    const [data, setData] = useState(getAboutData());
-    const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState(data);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    
-    const isCreator = currentUser.role === UserRole.CREATOR;
-
-    const handleSave = () => {
-        saveAboutData(formData);
-        setData(formData);
-        setIsEditing(false);
-    };
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const base64 = await readFileAsBase64(e.target.files[0]);
-            setFormData(prev => ({ ...prev, profileImage: base64 }));
-        }
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto p-8">
-            <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                <div className="h-32 bg-gradient-to-r from-indigo-600 to-blue-500 relative">
-                    {isCreator && !isEditing && (
-                        <button onClick={() => { setFormData(data); setIsEditing(true); }} className="absolute top-4 right-4 bg-white/20 text-white p-2 rounded-full hover:bg-white/30 backdrop-blur-sm transition-colors" title="Edit Page">
-                            <Edit className="w-5 h-5" />
-                        </button>
-                    )}
-                </div>
-                <div className="px-8 pb-8 relative">
-                    <div className="relative -mt-16 mb-6 flex justify-center">
-                        <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gray-200 relative group">
-                            {formData.profileImage ? (
-                                <img src={formData.profileImage} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                                    <User className="w-16 h-16" />
-                                </div>
-                            )}
-                            {isEditing && (
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => fileInputRef.current?.click()}>
-                                    <Camera className="w-8 h-8 text-white" />
-                                </div>
-                            )}
-                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                        </div>
-                    </div>
-
-                    {isEditing ? (
-                        <div className="space-y-4 max-w-lg mx-auto">
-                            <div className="text-center">
-                                <input className="text-3xl font-bold text-center w-full border-b pb-1" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                <input className="text-indigo-600 font-medium text-center w-full mt-2 border-b pb-1" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
-                            </div>
-                            <div className="bg-gray-50 p-4 rounded-lg border">
-                                <textarea className="w-full bg-transparent border-b mt-1 min-h-[100px]" value={formData.bio} onChange={e => setFormData({ ...formData, bio: e.target.value })} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <input className="w-full border p-2 rounded" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                                <input className="w-full border p-2 rounded" value={formData.contactInfo} onChange={e => setFormData({ ...formData, contactInfo: e.target.value })} />
-                            </div>
-                            <div className="flex justify-center gap-4 mt-6">
-                                <button onClick={() => setIsEditing(false)} className="px-6 py-2 rounded-full border">Cancel</button>
-                                <button onClick={handleSave} className="px-6 py-2 rounded-full bg-indigo-600 text-white">Save Changes</button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="text-center max-w-2xl mx-auto">
-                            <h1 className="text-3xl font-bold text-gray-900">{data.name}</h1>
-                            <p className="text-indigo-600 font-medium mt-1">{data.title}</p>
-                            <div className="my-8 text-gray-600 leading-relaxed text-lg">{data.bio}</div>
-                            <div className="flex justify-center gap-8 text-sm text-gray-500 border-t pt-6">
-                                <div><span className="block font-bold text-gray-700">Email</span>{data.email}</div>
-                                <div><span className="block font-bold text-gray-700">Contact</span>{data.contactInfo}</div>
-                            </div>
-                        </div>
-                    )}
-
-                    {!isCreator && !isEditing && (
-                        <div className="mt-12 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-                            <p className="text-sm text-yellow-800 flex items-center justify-center gap-2">
-                                <Lock className="w-4 h-4" /> The About page is managed by the creator and cannot be edited or removed by users.
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
-    const [step, setStep] = useState(1);
-    const [rehireMode, setRehireMode] = useState(false);
-    const [data, setData] = useState<any>({
-        type: StaffType.WORKER,
-        status: 'Active',
-        salary: { basic: 0, housing: 0, transport: 0, other: 0, airTicket: 0, leaveSalary: 0 },
-        leaveBalance: 0,
-        active: true,
-        joiningDate: formatDateLocal(new Date()),
-        documents: {}
-    });
-
-    const checkCode = (e: any) => {
-        const code = e.target.value;
-        if (!code) return;
-        const all = getEmployees();
-        const existing = all.find(emp => emp.code === code);
-        if (existing) {
-            if (existing.status === 'Inactive') {
-                if (window.confirm(`Employee "${existing.name}" (Inactive) found with this code. Re-hire?`)) {
-                    setRehireMode(true);
-                    setData({
-                        ...existing,
-                        status: 'Active',
-                        active: true,
-                        joiningDate: formatDateLocal(new Date()),
-                        rejoiningDate: formatDateLocal(new Date()),
-                        rejoiningReason: '',
-                        offboardingDetails: undefined
-                    });
-                } else {
-                    setData(prev => ({ ...prev, code: '' }));
-                }
-            } else {
-                alert(`Employee Code ${code} is already active!`);
-                setData(prev => ({ ...prev, code: '' }));
-            }
-        } else {
-            setRehireMode(false);
-        }
-    };
-
-    const handleSalaryChange = (field: string, value: string) => {
-        const numVal = value === '' ? 0 : parseFloat(value);
-        setData(prev => ({
-            ...prev,
-            salary: { ...prev.salary, [field]: numVal }
-        }));
-    };
-
-    const handleSave = () => {
-        if (!data.name || !data.code) return alert("Name and Code are required");
-        let employeeToSave = { ...data };
-        if (!rehireMode) {
-            if (!employeeToSave.id) employeeToSave.id = Math.random().toString(36).substr(2, 9);
-        }
-        saveEmployee(employeeToSave);
-        onComplete();
-    };
-
-    const inputClass = "w-full px-4 py-3 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all bg-gray-50 focus:bg-white text-gray-900";
-    const labelClass = "block text-sm font-medium text-gray-700 mb-1.5";
-
-    return (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-fade-in">
-                {/* Header */}
-                <div className="px-8 py-6 border-b border-gray-100 bg-white">
-                    <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                {rehireMode ? <RefreshCcw className="w-6 h-6 text-green-600"/> : <div className="bg-indigo-100 p-2 rounded-lg"><UserPlus className="w-6 h-6 text-indigo-600"/></div>}
-                                <span>{rehireMode ? 'Re-hire Employee' : 'Onboard New Employee'}</span>
-                            </h3>
-                        </div>
-                        <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
-                            <XCircle className="w-6 h-6" />
-                        </button>
-                    </div>
-
-                    {/* Stepper */}
-                    <div className="flex items-center gap-2">
-                        {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div 
-                                    className={`h-full transition-all duration-500 ${step >= i ? 'bg-indigo-600' : 'bg-transparent'}`} 
-                                />
-                            </div>
-                        ))}
-                    </div>
-                    <div className="flex justify-between mt-2 text-xs font-medium text-gray-500 px-1">
-                        <span className={step >= 1 ? 'text-indigo-600' : ''}>Personal Info</span>
-                        <span className={step >= 2 ? 'text-indigo-600' : ''}>Job Details</span>
-                        <span className={step >= 3 ? 'text-indigo-600' : ''}>Salary & Docs</span>
-                        <span className={step >= 4 ? 'text-indigo-600' : ''}>Review</span>
-                    </div>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-                    {step === 1 && (
-                        <div className="space-y-5 animate-fade-in">
-                            <div>
-                                <label className={labelClass}>Employee Code (ID)</label>
-                                <div className="relative">
-                                    <input 
-                                        className={`${inputClass} ${rehireMode ? 'bg-green-50 border-green-200 text-green-900' : ''}`} 
-                                        placeholder="e.g. 10045" 
-                                        value={data.code || ''} 
-                                        onChange={e => setData({ ...data, code: e.target.value })} 
-                                        onBlur={checkCode} 
-                                        disabled={rehireMode} 
-                                        autoFocus
-                                    />
-                                    {rehireMode && <span className="absolute right-4 top-3.5 text-xs font-bold text-green-600 flex items-center gap-1"><CheckCircle className="w-3 h-3"/> Found Record</span>}
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label className={labelClass}>Full Name</label>
-                                <input className={inputClass} placeholder="e.g. John Doe" value={data.name || ''} onChange={e => setData({ ...data, name: e.target.value })} />
-                            </div>
-
-                            <div>
-                                <label className={labelClass}>Company</label>
-                                <div className="relative">
-                                    <select className={`${inputClass} appearance-none`} value={data.company || ''} onChange={e => setData({ ...data, company: e.target.value })}>
-                                        <option value="">Select Company Entity</option>
-                                        {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                    <div className="absolute right-4 top-4 pointer-events-none text-gray-400">
-                                        <ChevronRight className="w-4 h-4 rotate-90" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className={labelClass}>Joining Date</label>
-                                <input type="date" className={inputClass} value={rehireMode ? (data.rejoiningDate || '') : (data.joiningDate || '')} onChange={e => rehireMode ? setData({ ...data, rejoiningDate: e.target.value }) : setData({ ...data, joiningDate: e.target.value })} />
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 2 && (
-                        <div className="space-y-5 animate-fade-in">
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <label className={labelClass}>Designation</label>
-                                    <input className={inputClass} placeholder="e.g. Cleaner" value={data.designation || ''} onChange={e => setData({ ...data, designation: e.target.value })} />
-                                </div>
-                                <div>
-                                    <label className={labelClass}>Department</label>
-                                    <input className={inputClass} placeholder="e.g. Operations" value={data.department || ''} onChange={e => setData({ ...data, department: e.target.value })} />
-                                </div>
-                             </div>
-
-                             <div>
-                                <label className={labelClass}>Team Assignment</label>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {['Internal Team', 'External Team', 'Office Staff'].map(t => (
-                                        <div 
-                                            key={t}
-                                            onClick={() => setData({...data, team: t})}
-                                            className={`cursor-pointer p-3 rounded-lg border-2 text-center text-sm font-medium transition-all ${data.team === t ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}
-                                        >
-                                            {t}
-                                        </div>
-                                    ))}
-                                </div>
-                             </div>
-
-                             <div>
-                                <label className={labelClass}>Employment Type</label>
-                                <div className="flex gap-4">
-                                    <label className={`flex-1 cursor-pointer p-4 rounded-lg border-2 flex items-center gap-3 ${data.type === StaffType.WORKER ? 'border-indigo-600 bg-indigo-50' : 'border-gray-100'}`}>
-                                        <input type="radio" name="type" className="hidden" checked={data.type === StaffType.WORKER} onChange={() => setData({...data, type: StaffType.WORKER})} />
-                                        <div className={`p-2 rounded-full ${data.type === StaffType.WORKER ? 'bg-indigo-200 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}><Users className="w-5 h-5" /></div>
-                                        <div>
-                                            <div className="font-bold text-sm text-gray-900">Worker</div>
-                                            <div className="text-xs text-gray-500">Hourly/Task based</div>
-                                        </div>
-                                    </label>
-                                    <label className={`flex-1 cursor-pointer p-4 rounded-lg border-2 flex items-center gap-3 ${data.type === StaffType.OFFICE ? 'border-indigo-600 bg-indigo-50' : 'border-gray-100'}`}>
-                                        <input type="radio" name="type" className="hidden" checked={data.type === StaffType.OFFICE} onChange={() => setData({...data, type: StaffType.OFFICE})} />
-                                        <div className={`p-2 rounded-full ${data.type === StaffType.OFFICE ? 'bg-indigo-200 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}><Building2 className="w-5 h-5" /></div>
-                                        <div>
-                                            <div className="font-bold text-sm text-gray-900">Office Staff</div>
-                                            <div className="text-xs text-gray-500">Salary based</div>
-                                        </div>
-                                    </label>
-                                </div>
-                             </div>
-
-                             <div>
-                                <label className={labelClass}>Work Location</label>
-                                <input className={inputClass} placeholder="e.g. Head Office, Abu Dhabi" value={data.workLocation || ''} onChange={e => setData({ ...data, workLocation: e.target.value })} />
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 3 && (
-                        <div className="space-y-6 animate-fade-in">
-                            <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                                <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4"/> Salary Breakdown (AED)</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1">Basic Salary</label>
-                                        <input type="number" className="w-full p-2 border rounded bg-white focus:ring-2 focus:ring-indigo-200 outline-none" value={data.salary?.basic} onChange={e => handleSalaryChange('basic', e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1">Housing</label>
-                                        <input type="number" className="w-full p-2 border rounded bg-white focus:ring-2 focus:ring-indigo-200 outline-none" value={data.salary?.housing} onChange={e => handleSalaryChange('housing', e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1">Transport</label>
-                                        <input type="number" className="w-full p-2 border rounded bg-white focus:ring-2 focus:ring-indigo-200 outline-none" value={data.salary?.transport} onChange={e => handleSalaryChange('transport', e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1">Air Ticket</label>
-                                        <input type="number" className="w-full p-2 border rounded bg-white focus:ring-2 focus:ring-indigo-200 outline-none" value={data.salary?.airTicket} onChange={e => handleSalaryChange('airTicket', e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1">Leave Salary</label>
-                                        <input type="number" className="w-full p-2 border rounded bg-white focus:ring-2 focus:ring-indigo-200 outline-none" value={data.salary?.leaveSalary} onChange={e => handleSalaryChange('leaveSalary', e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase mb-1">Other Allowances</label>
-                                        <input type="number" className="w-full p-2 border rounded bg-white focus:ring-2 focus:ring-indigo-200 outline-none" value={data.salary?.other} onChange={e => handleSalaryChange('other', e.target.value)} />
-                                    </div>
-                                </div>
-                                <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                                    <span className="text-sm font-medium text-gray-600">Total Monthly Salary</span>
-                                    <span className="text-xl font-bold text-green-600">
-                                        AED {((data.salary?.basic || 0) + (data.salary?.housing || 0) + (data.salary?.transport || 0) + (data.salary?.other || 0) + (data.salary?.airTicket || 0) + (data.salary?.leaveSalary || 0)).toLocaleString()}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 4 && (
-                        <div className="space-y-6 animate-fade-in">
-                            <div className="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-xl border border-indigo-100">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center text-2xl font-bold text-indigo-600 border-4 border-white shadow-sm">
-                                        {data.name?.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900">{data.name}</h3>
-                                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                                            <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-700">{data.code}</span>
-                                            <span>•</span>
-                                            <span>{data.designation}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
-                                    <div>
-                                        <div className="text-xs text-gray-400 uppercase mb-1">Company</div>
-                                        <div className="font-medium text-gray-800">{data.company}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-400 uppercase mb-1">Department</div>
-                                        <div className="font-medium text-gray-800">{data.department}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-400 uppercase mb-1">Location</div>
-                                        <div className="font-medium text-gray-800">{data.workLocation}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-400 uppercase mb-1">Team</div>
-                                        <div className="font-medium text-gray-800">{data.team}</div>
-                                    </div>
-                                    <div className="col-span-2 pt-4 border-t">
-                                        <div className="text-xs text-gray-400 uppercase mb-1">Total Salary Package</div>
-                                        <div className="font-bold text-lg text-green-600">
-                                             AED {((data.salary?.basic || 0) + (data.salary?.housing || 0) + (data.salary?.transport || 0) + (data.salary?.other || 0) + (data.salary?.airTicket || 0) + (data.salary?.leaveSalary || 0)).toLocaleString()}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <p className="text-center text-xs text-gray-500">Please verify all details before confirming.</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
-                    {step > 1 ? (
-                        <button onClick={() => setStep(step - 1)} className="text-gray-600 hover:text-gray-900 font-medium text-sm px-4 py-2 hover:bg-gray-200 rounded-lg transition-colors">
-                            Back
-                        </button>
-                    ) : (
-                        <button onClick={onClose} className="text-gray-600 hover:text-gray-900 font-medium text-sm px-4 py-2 hover:bg-gray-200 rounded-lg transition-colors">
-                            Cancel
-                        </button>
-                    )}
-                    
-                    {step < 4 ? (
-                        <button onClick={() => setStep(step + 1)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-0.5">
-                            Next Step
-                        </button>
-                    ) : (
-                        <button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-green-200 transition-all transform hover:-translate-y-0.5 flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4" /> {rehireMode ? 'Confirm Re-hire' : 'Complete Onboarding'}
-                        </button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any) => {
-    const [newName, setNewName] = useState('');
-    const [editingName, setEditingName] = useState(null);
-    const [editValue, setEditValue] = useState('');
-
-    const handleAdd = () => {
-        if (!newName.trim()) return;
-        const updated = addCompany(newName.trim());
-        onDataChange(updated);
-        setNewName('');
-    };
-
-    const handleDelete = (name: string) => {
-        if (window.confirm(`Delete "${name}"?`)) {
-            const updated = deleteCompany(name);
-            onDataChange(updated);
-        }
-    };
-
-    const startEdit = (name: any) => { setEditingName(name); setEditValue(name); };
-    
-    const saveEdit = () => {
-        if (editingName && editValue.trim()) {
-            const updated = updateCompany(editingName, editValue.trim());
-            onDataChange(updated);
-            setEditingName(null);
-        }
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl p-6 flex flex-col max-h-[80vh]">
+         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold">Manage Companies</h3>
+                    <h3 className="font-bold text-xl">Edit Employee</h3>
                     <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
                 </div>
-                <div className="flex gap-2 mb-6">
-                    <input value={newName} onChange={e => setNewName(e.target.value)} className="flex-1 p-2 border rounded-lg" placeholder="New company name" />
-                    <button onClick={handleAdd} disabled={!newName.trim()} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">Add</button>
+                <div className="grid grid-cols-2 gap-4">
+                     <input className="p-2 border rounded" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
+                     <input className="p-2 border rounded" value={data.code} onChange={e => setData({...data, code: e.target.value})} placeholder="Code" />
+                     <select className="p-2 border rounded" value={data.company} onChange={e => setData({...data, company: e.target.value})}>
+                        {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                     </select>
+                     <input className="p-2 border rounded" value={data.designation} onChange={e => setData({...data, designation: e.target.value})} placeholder="Designation" />
                 </div>
-                <div className="flex-1 overflow-y-auto">
-                    <ul className="space-y-2">
-                        {companies.map((c: string) => (
-                            <li key={c} className="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 group">
-                                {editingName === c ? (
-                                    <div className="flex-1 flex gap-2 items-center">
-                                        <input value={editValue} onChange={e => setEditValue(e.target.value)} className="flex-1 p-2 border rounded-lg text-sm" autoFocus />
-                                        <button onClick={saveEdit} className="text-green-600 p-1.5"><Check className="w-4 h-4" /></button>
-                                        <button onClick={() => setEditingName(null)} className="text-gray-500 p-1.5"><XCircle className="w-4 h-4" /></button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <span className="flex-1 text-sm font-medium truncate" title={c}>{c}</span>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => startEdit(c)} className="text-blue-600 p-1.5"><Edit className="w-4 h-4" /></button>
-                                            <button onClick={() => handleDelete(c)} className="text-red-600 p-1.5"><Trash2 className="w-4 h-4" /></button>
-                                        </div>
-                                    </>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
+                <div className="mt-6 flex justify-end gap-2">
+                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+                    <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded">Save Changes</button>
                 </div>
             </div>
         </div>
     );
 };
 
-const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
-    const [details, setDetails] = useState<OffboardingDetails>({
-        type: 'Resignation',
-        exitDate: new Date().toISOString().split('T')[0],
-        reason: '',
-        gratuity: 0,
-        leaveEncashment: 0,
-        salaryDues: 0,
-        otherDues: 0,
-        deductions: 0,
-        netSettlement: 0,
-        assetsReturned: false,
-        notes: ''
-    });
-
-    // Auto-calculate net
-    useEffect(() => {
-        const net = (Number(details.gratuity) || 0) + 
-                    (Number(details.leaveEncashment) || 0) + 
-                    (Number(details.salaryDues) || 0) + 
-                    (Number(details.otherDues) || 0) - 
-                    (Number(details.deductions) || 0);
-        setDetails(prev => ({ ...prev, netSettlement: net }));
-    }, [details.gratuity, details.leaveEncashment, details.salaryDues, details.otherDues, details.deductions]);
-
-    const handleSubmit = () => {
-        if (!details.exitDate || !details.type) return alert("Please fill required fields");
-        offboardEmployee(employee.id, details);
-        onComplete();
-    };
-
-    const handleChange = (field: string, value: any) => {
-        setDetails(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const base64 = await readFileAsBase64(file);
-            setDetails(prev => ({
-                ...prev,
-                documents: [...(prev.documents || []), { name: file.name, data: base64 }]
-            }));
-        }
-    };
-
-    const removeFile = (index: number) => {
-        setDetails(prev => ({
-            ...prev,
-            documents: prev.documents?.filter((_, i) => i !== index)
-        }));
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 my-8">
-                <h3 className="font-bold text-lg mb-4 text-red-600">Offboard Employee: {employee.name}</h3>
-                
-                <div className="space-y-4">
-                    <select className="w-full p-2 border rounded" value={details.type} onChange={e => setDetails({ ...details, type: e.target.value as OffboardingDetails['type'] })}>
-                        <option value="Resignation">Resignation</option>
-                        <option value="Termination">Termination</option>
-                        <option value="End of Contract">End of Contract</option>
-                        <option value="Absconding">Absconding</option>
-                    </select>
-                    
-                    <input type="date" className="w-full p-2 border rounded" value={details.exitDate} onChange={e => setDetails({ ...details, exitDate: e.target.value })} />
-                    
-                    <textarea className="w-full p-2 border rounded" placeholder="Reason" value={details.reason} onChange={e => setDetails({ ...details, reason: e.target.value })} />
-
-                    <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded">
-                        <div>
-                            <label className="text-xs">Gratuity</label>
-                            <input type="number" className="w-full p-1 border" value={details.gratuity} onChange={e => setDetails({ ...details, gratuity: parseFloat(e.target.value) })} />
-                        </div>
-                        <div>
-                            <label className="text-xs">Leave Encashment</label>
-                            <input type="number" className="w-full p-1 border" value={details.leaveEncashment} onChange={e => setDetails({ ...details, leaveEncashment: parseFloat(e.target.value) })} />
-                        </div>
-                        <div>
-                            <label className="text-xs">Salary Dues</label>
-                            <input type="number" className="w-full p-1 border" value={details.salaryDues} onChange={e => setDetails({ ...details, salaryDues: parseFloat(e.target.value) })} />
-                        </div>
-                        <div>
-                            <label className="text-xs">Other Dues</label>
-                            <input type="number" className="w-full p-1 border" value={details.otherDues} onChange={e => setDetails({ ...details, otherDues: parseFloat(e.target.value) })} />
-                        </div>
-                        <div>
-                            <label className="text-xs">Deductions</label>
-                            <input type="number" className="w-full p-1 border" value={details.deductions} onChange={e => setDetails({ ...details, deductions: parseFloat(e.target.value) })} />
-                        </div>
-                    </div>
-
-                    <div className="border p-3 rounded-lg bg-blue-50">
-                        <label className="text-sm font-bold text-blue-800 flex items-center gap-2 mb-2">
-                            <Upload className="w-4 h-4" /> Upload Documents
-                        </label>
-                        <input type="file" onChange={handleFileChange} className="text-xs w-full mb-2" />
-                        <ul className="space-y-1">
-                            {details.documents?.map((doc: any, idx: number) => (
-                                <li key={idx} className="flex justify-between items-center text-xs bg-white p-1 rounded border">
-                                    <span className="truncate max-w-[200px]">{doc.name}</span>
-                                    <button onClick={() => removeFile(idx)} className="text-red-500 hover:text-red-700"><XCircle className="w-3 h-3" /></button>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <input type="checkbox" checked={details.assetsReturned} onChange={e => setDetails({ ...details, assetsReturned: e.target.checked })} id="assets" />
-                        <label htmlFor="assets" className="text-sm font-medium">All company assets returned (Laptop, ID, Uniform, etc.)</label>
-                    </div>
-
-                    <div>
-                         <label className="block text-xs font-bold text-gray-500 mb-1">Additional Notes</label>
-                         <textarea className="w-full p-2 border rounded h-16" value={details.notes} onChange={e => handleChange('notes', e.target.value)}></textarea>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={handleSubmit} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold flex items-center gap-2">
-                        <LogOut className="w-4 h-4" /> Confirm Offboarding
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const PayslipModal = ({ employee, month, year, onClose }: any) => {
-    const [records, setRecords] = useState<AttendanceRecord[]>([]);
-    
-    useEffect(() => {
-        const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-        const end = `${year}-${String(month + 1).padStart(2, '0')}-${new Date(year, month + 1, 0).getDate()}`;
-        setRecords(getAttendanceRange(start, end).filter(r => r.employeeId === employee.id));
-    }, [employee, month, year]);
-
-    const { overtimePay, holidayPay, weekOffPay, totalOTHours } = calculateAdditionalEarnings(records, employee.team);
-    
-    const basic = employee.salary?.basic || 0;
-    const housing = employee.salary?.housing || 0;
-    const transport = employee.salary?.transport || 0;
-    const other = employee.salary?.other || 0;
-    const airTicket = employee.salary?.airTicket || 0;
-    const leaveSalary = employee.salary?.leaveSalary || 0;
-    const gross = basic + housing + transport + other + airTicket + leaveSalary;
-    
-    // Updated Deduction Logic per request: Annual, Emergency, Unpaid, Absent are ALL unpaid
-    const unpaidLeaveDays = records.filter(r => r.status === AttendanceStatus.UNPAID_LEAVE).length;
-    const absentDays = records.filter(r => r.status === AttendanceStatus.ABSENT).length;
-    const annualLeaveDays = records.filter(r => r.status === AttendanceStatus.ANNUAL_LEAVE).length;
-    const emergencyLeaveDays = records.filter(r => r.status === AttendanceStatus.EMERGENCY_LEAVE).length;
-
-    // Total unpaid days
-    const totalUnpaidDays = unpaidLeaveDays + absentDays + annualLeaveDays + emergencyLeaveDays;
-    
-    const deduction = (gross / 30) * totalUnpaidDays;
-
-    // Fetch Variable Deductions
-    const empDeductions = getDeductions().filter(d => {
-        const dDate = new Date(d.date);
-        return d.employeeId === employee.id && dDate.getMonth() === month && dDate.getFullYear() === year;
-    });
-    const totalVariableDeductions = empDeductions.reduce((acc, curr) => acc + curr.amount, 0);
-
-    const totalAdditions = overtimePay + holidayPay + weekOffPay;
-    const totalDeductionVal = deduction + totalVariableDeductions;
-    const net = gross - totalDeductionVal + totalAdditions;
+// Update PayslipModal to show Air Ticket, Leave Salary, OT explicitly
+const PayslipModal = ({ employee, month, year, onClose, allAttendance, allDeductions }: any) => {
+    // Use the unified calculator
+    const payrollData = calculatePayroll(employee, allAttendance, allDeductions, month, year);
 
     const monthName = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+    const { 
+        basic, housing, transport, airTicket, leaveSalary, other, 
+        gross, totalAdditions, totalDeductions, netSalary,
+        overtimePay, holidayPay, weekOffPay, totalOTHours,
+        unpaidDaysCount, unpaidDeductionAmount, variableDeductions
+    } = payrollData;
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:p-0 print:static print:bg-white">
@@ -1793,16 +1262,16 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                                 <tr>
                                     <td className="p-2 border">Basic Salary</td>
                                     <td className="p-2 border text-right">{basic.toLocaleString()}</td>
-                                    <td className="p-2 border">Unpaid Days ({totalUnpaidDays} days)</td>
-                                    <td className="p-2 border text-right text-red-600">{deduction > 0 ? deduction.toLocaleString(undefined, {maximumFractionDigits: 2}) : '0.00'}</td>
+                                    <td className="p-2 border">Unpaid Days ({unpaidDaysCount} days)</td>
+                                    <td className="p-2 border text-right text-red-600">{unpaidDeductionAmount > 0 ? unpaidDeductionAmount.toLocaleString(undefined, {maximumFractionDigits: 2}) : '0.00'}</td>
                                 </tr>
                                 <tr>
                                     <td className="p-2 border">Housing Allowance</td>
                                     <td className="p-2 border text-right">{housing.toLocaleString()}</td>
                                     <td className="p-2 border">
-                                        {(annualLeaveDays > 0 || emergencyLeaveDays > 0) && (
+                                        {unpaidDaysCount > 0 && (
                                             <span className="text-[10px] text-red-500 italic block">
-                                                * Includes AL/EL as unpaid per policy.
+                                                * Includes Absent/UL/AL/EL as unpaid.
                                             </span>
                                         )}
                                     </td>
@@ -1811,6 +1280,18 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                                 <tr>
                                     <td className="p-2 border">Transport Allowance</td>
                                     <td className="p-2 border text-right">{transport.toLocaleString()}</td>
+                                    <td className="p-2 border"></td>
+                                    <td className="p-2 border text-right"></td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 border">Air Ticket</td>
+                                    <td className="p-2 border text-right">{airTicket.toLocaleString()}</td>
+                                    <td className="p-2 border"></td>
+                                    <td className="p-2 border text-right"></td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 border">Leave Salary</td>
+                                    <td className="p-2 border text-right">{leaveSalary.toLocaleString()}</td>
                                     <td className="p-2 border"></td>
                                     <td className="p-2 border text-right"></td>
                                 </tr>
@@ -1843,7 +1324,7 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                                     </tr>
                                 )}
                                 {/* Variable Deductions Rows */}
-                                {empDeductions.map(d => (
+                                {variableDeductions.map((d: any) => (
                                     <tr key={d.id}>
                                         <td className="p-2 border"></td>
                                         <td className="p-2 border text-right"></td>
@@ -1856,23 +1337,16 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                                     <td className="p-3 border">Total Earnings</td>
                                     <td className="p-3 border text-right">{(gross + totalAdditions).toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
                                     <td className="p-3 border">Total Deductions</td>
-                                    <td className="p-3 border text-right">{totalDeductionVal.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                                    <td className="p-3 border text-right">{totalDeductions.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
-                    {(annualLeaveDays > 0 || emergencyLeaveDays > 0) && (
-                        <div className="mb-6 p-3 bg-red-50 text-red-700 text-xs rounded border border-red-200">
-                            <strong>Note:</strong> This deduction includes Annual or Emergency Leave days. 
-                            This is not paid leave for this company policy.
-                        </div>
-                    )}
-
                     <div className="flex justify-end">
                         <div className="bg-gray-900 text-white p-4 rounded-lg min-w-[250px]">
                             <div className="text-xs text-gray-400 uppercase mb-1">Net Pay</div>
-                            <div className="text-2xl font-bold">AED {net.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+                            <div className="text-2xl font-bold">AED {netSalary.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
                         </div>
                     </div>
                     
@@ -1887,212 +1361,6 @@ const PayslipModal = ({ employee, month, year, onClose }: any) => {
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    );
-};
-
-const RehireModal = ({ employee, onClose, onConfirm }: any) => {
-    const [date, setDate] = useState(formatDateLocal(new Date()));
-    const [reason, setReason] = useState('');
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6 animate-fade-in">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <RefreshCcw className="w-5 h-5 text-green-600" /> Re-hire Employee
-                    </h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span className="block text-xs text-gray-500 uppercase font-bold">Name</span>
-                            <span className="font-medium text-gray-900">{employee.name}</span>
-                        </div>
-                        <div>
-                            <span className="block text-xs text-gray-500 uppercase font-bold">Code</span>
-                            <span className="font-mono text-gray-900">{employee.code}</span>
-                        </div>
-                        <div className="col-span-2">
-                            <span className="block text-xs text-gray-500 uppercase font-bold">Designation</span>
-                            <span className="text-gray-700">{employee.designation}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Re-joining Date</label>
-                        <input type="date" className="w-full p-2 border border-gray-300 rounded-lg" value={date} onChange={e => setDate(e.target.value)} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Reason / Notes</label>
-                        <textarea className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Explain re-joining..." value={reason} onChange={e => setReason(e.target.value)}></textarea>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3 mt-8">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">Cancel</button>
-                    <button onClick={() => onConfirm(employee.id, date, reason)} disabled={!reason.trim()} className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-50">Confirm Re-hire</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ReportsView = ({ employees, attendance }: any) => {
-    const [fromDate, setFromDate] = useState(formatDateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
-    const [toDate, setToDate] = useState(formatDateLocal(new Date()));
-    const [searchTerm, setSearchTerm] = useState('');
-
-    const filterAttendance = () => {
-        return attendance.filter((r: any) => r.date >= fromDate && r.date <= toDate);
-    };
-
-    const filteredRecs = filterAttendance();
-    const totalPresent = filteredRecs.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
-    const totalAbsent = filteredRecs.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
-    const totalLeaves = filteredRecs.filter((r: any) => [AttendanceStatus.SICK_LEAVE, AttendanceStatus.ANNUAL_LEAVE, AttendanceStatus.EMERGENCY_LEAVE].includes(r.status)).length;
-    const totalOTHours = filteredRecs.reduce((acc: number, curr: any) => acc + (curr.overtimeHours || 0), 0);
-    const activeEmployeesCount = employees.filter((e: any) => e.active).length;
-
-    // Calculate estimated cost
-    let totalEstCost = 0;
-    employees.filter((e: any) => e.active).forEach((emp: any) => {
-        const empRecs = filteredRecs.filter((r: any) => r.employeeId === emp.id);
-        const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = emp.salary || {};
-        const gross = basic + housing + transport + other + airTicket + leaveSalary;
-        const dailyRate = gross / 30;
-        
-        // Basic Pay for days present/weekoff/holidays/paid leaves
-        // Updated logic: Absent, UL, AL, EL are unpaid
-        const paidDays = empRecs.filter((r: any) => 
-            r.status !== AttendanceStatus.ABSENT && 
-            r.status !== AttendanceStatus.UNPAID_LEAVE &&
-            r.status !== AttendanceStatus.ANNUAL_LEAVE &&
-            r.status !== AttendanceStatus.EMERGENCY_LEAVE
-        ).length;
-        const basicCost = dailyRate * paidDays;
-
-        // Additional Earnings
-        const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
-        
-        totalEstCost += basicCost + overtimePay + holidayPay + weekOffPay;
-    });
-
-    const employeeStats = employees
-        .filter((e: any) => e.active)
-        .filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        .map((emp: any) => {
-            const empRecs = filteredRecs.filter((r: any) => r.employeeId === emp.id);
-            const present = empRecs.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
-            const absent = empRecs.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
-            const ot = empRecs.reduce((acc: number, curr: any) => acc + (curr.overtimeHours || 0), 0);
-            
-            // Simplified cost per employee for the table
-            const { basic = 0, housing = 0, transport = 0, other = 0, airTicket = 0, leaveSalary = 0 } = emp.salary || {};
-            const gross = basic + housing + transport + other + airTicket + leaveSalary;
-            const daily = gross / 30;
-            const paid = empRecs.filter((r: any) => 
-                r.status !== AttendanceStatus.ABSENT && 
-                r.status !== AttendanceStatus.UNPAID_LEAVE &&
-                r.status !== AttendanceStatus.ANNUAL_LEAVE &&
-                r.status !== AttendanceStatus.EMERGENCY_LEAVE
-            ).length;
-            const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
-            const cost = (daily * paid) + overtimePay + holidayPay + weekOffPay;
-
-            return { ...emp, present, absent, ot, cost };
-        });
-
-    return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
-                <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                    <div className="w-full md:w-auto">
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">From</label>
-                        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="p-2 border rounded-lg bg-white w-full" />
-                    </div>
-                    <div className="w-full md:w-auto">
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">To</label>
-                        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="p-2 border rounded-lg bg-white w-full" />
-                    </div>
-                </div>
-                <button onClick={() => window.print()} className="bg-gray-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm hover:bg-gray-800 w-full md:w-auto justify-center">
-                    <Printer className="w-4 h-4" /> Print Report
-                </button>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border p-8 text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Workforce Analytics Report</h2>
-                <p className="text-gray-500 mt-1">Period: {fromDate} to {toDate}</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-blue-50 p-6 rounded-lg border border-blue-100">
-                    <h3 className="text-blue-800 text-xs font-bold uppercase mb-1">Est. Cost</h3>
-                    <div className="text-2xl font-bold text-blue-900">AED {totalEstCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
-                </div>
-                <div className="bg-green-50 p-6 rounded-lg border border-green-100">
-                    <h3 className="text-green-800 text-xs font-bold uppercase mb-1">Total OT Hours</h3>
-                    <div className="text-2xl font-bold text-green-900">{totalOTHours}</div>
-                </div>
-                <div className="bg-orange-50 p-6 rounded-lg border border-orange-100">
-                    <h3 className="text-orange-800 text-xs font-bold uppercase mb-1">Absent Days</h3>
-                    <div className="text-2xl font-bold text-orange-900">{totalAbsent}</div>
-                </div>
-                <div className="bg-white p-6 rounded-lg border border-gray-200">
-                    <h3 className="text-gray-500 text-xs font-bold uppercase mb-1">Employees Active</h3>
-                    <div className="text-2xl font-bold text-gray-900">{activeEmployeesCount}</div>
-                </div>
-            </div>
-
-            <div className="mt-8 mb-4 flex items-center gap-2 max-w-md w-full">
-                 <div className="relative flex-1">
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input 
-                         type="text" 
-                         placeholder="Filter by employee name..." 
-                         value={searchTerm} 
-                         onChange={e => setSearchTerm(e.target.value)} 
-                         className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full" 
-                      />
-                 </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
-                <table className="w-full text-sm text-left min-w-[600px]">
-                    <thead className="bg-gray-50 text-gray-600 font-bold text-xs uppercase border-b">
-                        <tr>
-                            <th className="p-4">Employee</th>
-                            <th className="p-4">Company</th>
-                            <th className="p-4 text-center">Present</th>
-                            <th className="p-4 text-center">Absent</th>
-                            <th className="p-4 text-center text-blue-600">OT (Hrs)</th>
-                            <th className="p-4 text-right">Est. Cost</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {employeeStats.map(stat => (
-                            <tr key={stat.id} className="hover:bg-gray-50">
-                                <td className="p-4 font-bold text-gray-800">{stat.name}</td>
-                                <td className="p-4 text-gray-500 text-xs">{stat.company}</td>
-                                <td className="p-4 text-center">{stat.present}</td>
-                                <td className="p-4 text-center text-red-500 font-bold">{stat.absent}</td>
-                                <td className="p-4 text-center text-blue-600 font-bold">{stat.ot}</td>
-                                <td className="p-4 text-right font-bold">AED {stat.cost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                            </tr>
-                        ))}
-                        <tr className="bg-gray-50 font-bold">
-                            <td className="p-4" colSpan={4}>TOTAL</td>
-                            <td className="p-4 text-center text-blue-600">{totalOTHours}</td>
-                            <td className="p-4 text-right">AED {totalEstCost.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                        </tr>
-                    </tbody>
-                </table>
             </div>
         </div>
     );
@@ -2158,7 +1426,6 @@ const App: React.FC = () => {
     if (currentUser) handleRefresh();
   }, [currentUser, currentDate]);
 
-  // --- Dashboard Filter Handlers ---
   const handleDashboardFilter = (filterType: 'active' | 'internal' | 'external' | 'office' | 'company', value?: string) => {
       setActiveTab('directory');
       if (filterType === 'active') {
@@ -2182,7 +1449,6 @@ const App: React.FC = () => {
   };
 
   const filteredEmployees = employees.filter(e => {
-      // 1. Filter by Tab Logic & Search
       if (activeTab === 'directory') {
           if (selectedStatus !== 'All' && e.status !== selectedStatus) return false;
           if (directorySearch && !e.name.toLowerCase().includes(directorySearch.toLowerCase()) && !e.code.includes(directorySearch)) return false;
@@ -2200,7 +1466,6 @@ const App: React.FC = () => {
            if (payrollSearch && !e.name.toLowerCase().includes(payrollSearch.toLowerCase()) && !e.code.includes(payrollSearch)) return false;
       }
 
-      // 2. Filter by Header Dropdowns
       if (selectedCompany !== 'All Companies' && e.company !== selectedCompany) return false;
       if (selectedTeam !== 'All Teams' && e.team !== (selectedTeam === 'Internal' ? 'Internal Team' : selectedTeam === 'External' ? 'External Team' : 'Office Staff')) return false;
       return true;
@@ -2254,39 +1519,133 @@ const App: React.FC = () => {
       handleRefresh();
   };
 
-  // Calculate Payroll Totals using useMemo
+  // --- Print All Payslips Logic ---
+  const handlePrintAllPayslips = () => {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return alert("Please allow popups to print.");
+
+      // Calculate data for all active visible employees
+      const payslipsData = filteredEmployees.filter(e => e.active).map(emp => {
+          return {
+              emp,
+              data: calculatePayroll(emp, attendance, deductions, currentDate.getMonth(), currentDate.getFullYear())
+          };
+      });
+      
+      const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+      const htmlContent = `
+        <html>
+        <head>
+            <title>Payslips - ${monthName}</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+                @media print {
+                    .page-break { page-break-after: always; }
+                    body { -webkit-print-color-adjust: exact; }
+                }
+                body { font-family: 'Inter', sans-serif; background: #fff; }
+            </style>
+        </head>
+        <body>
+            ${payslipsData.map(({ emp, data }) => `
+                <div class="max-w-2xl mx-auto p-8 border-b mb-8 page-break">
+                    <div class="text-center border-b pb-6 mb-6">
+                        <h1 class="text-2xl font-bold uppercase text-gray-900">${emp.company}</h1>
+                        <p class="text-sm text-gray-500">Payslip for the month of ${monthName}</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-8 mb-8">
+                        <div>
+                            <div class="text-xs text-gray-500 uppercase font-bold mb-1">Employee Details</div>
+                            <div class="grid grid-cols-2 gap-y-2 text-sm">
+                                <span class="text-gray-600">Name:</span><span class="font-bold">${emp.name}</span>
+                                <span class="text-gray-600">Code:</span><span class="font-mono">${emp.code}</span>
+                                <span class="text-gray-600">Designation:</span><span>${emp.designation}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 uppercase font-bold mb-1">Bank Details</div>
+                            <div class="grid grid-cols-2 gap-y-2 text-sm">
+                                <span class="text-gray-600">Bank Name:</span><span>${emp.bankName || '-'}</span>
+                                <span class="text-gray-600">IBAN:</span><span class="font-mono">${emp.iban || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <table class="w-full text-sm border border-gray-200 mb-6">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="p-2 border text-left">Earnings</th>
+                                <th class="p-2 border text-right">Amount</th>
+                                <th class="p-2 border text-left">Deductions</th>
+                                <th class="p-2 border text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="p-2 border">Basic Salary</td><td class="p-2 border text-right">${data.basic.toLocaleString()}</td>
+                                <td class="p-2 border">Unpaid Days (${data.unpaidDaysCount})</td><td class="p-2 border text-right text-red-600">${data.unpaidDeductionAmount > 0 ? data.unpaidDeductionAmount.toLocaleString(undefined, {maximumFractionDigits: 2}) : '0.00'}</td>
+                            </tr>
+                            <tr>
+                                <td class="p-2 border">Housing Allowance</td><td class="p-2 border text-right">${data.housing.toLocaleString()}</td>
+                                <td class="p-2 border"></td><td class="p-2 border"></td>
+                            </tr>
+                            <tr>
+                                <td class="p-2 border">Transport Allowance</td><td class="p-2 border text-right">${data.transport.toLocaleString()}</td>
+                                <td class="p-2 border"></td><td class="p-2 border"></td>
+                            </tr>
+                            <tr>
+                                <td class="p-2 border">Air Ticket</td><td class="p-2 border text-right">${data.airTicket.toLocaleString()}</td>
+                                <td class="p-2 border"></td><td class="p-2 border"></td>
+                            </tr>
+                            <tr>
+                                <td class="p-2 border">Leave Salary</td><td class="p-2 border text-right">${data.leaveSalary.toLocaleString()}</td>
+                                <td class="p-2 border"></td><td class="p-2 border"></td>
+                            </tr>
+                             <tr>
+                                <td class="p-2 border">Other Allowances</td><td class="p-2 border text-right">${data.other.toLocaleString()}</td>
+                                <td class="p-2 border"></td><td class="p-2 border"></td>
+                            </tr>
+                            <tr>
+                                <td class="p-2 border text-blue-600">Overtime (${data.totalOTHours})</td><td class="p-2 border text-right text-blue-600">${data.overtimePay.toLocaleString()}</td>
+                                <td class="p-2 border"></td><td class="p-2 border"></td>
+                            </tr>
+                            ${data.holidayPay > 0 ? `<tr><td class="p-2 border text-blue-600">Holiday Pay</td><td class="p-2 border text-right text-blue-600">${data.holidayPay.toLocaleString()}</td><td class="p-2 border"></td><td class="p-2 border"></td></tr>` : ''}
+                            ${data.weekOffPay > 0 ? `<tr><td class="p-2 border text-blue-600">WeekOff Pay</td><td class="p-2 border text-right text-blue-600">${data.weekOffPay.toLocaleString()}</td><td class="p-2 border"></td><td class="p-2 border"></td></tr>` : ''}
+                            ${data.variableDeductions.map((d: any) => `<tr><td class="p-2 border"></td><td class="p-2 border"></td><td class="p-2 border text-red-600">${d.type}</td><td class="p-2 border text-right text-red-600">${d.amount.toLocaleString()}</td></tr>`).join('')}
+                            <tr class="font-bold bg-gray-50">
+                                <td class="p-2 border">Total Earnings</td><td class="p-2 border text-right">${(data.gross + data.totalAdditions).toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                                <td class="p-2 border">Total Deductions</td><td class="p-2 border text-right">${data.totalDeductions.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="flex justify-end">
+                        <div class="bg-gray-900 text-white p-4 rounded-lg min-w-[200px]">
+                            <div class="text-xs text-gray-400 uppercase mb-1">Net Pay</div>
+                            <div class="text-xl font-bold">AED ${data.netSalary.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+            <script>
+                window.onload = () => { window.print(); }
+            </script>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+  };
+
+  // Calculate Payroll Totals using useMemo and unified calculator
   const payrollTotals = useMemo(() => {
     if (activeTab !== 'payroll') return { basic: 0, housing: 0, transport: 0, airTicket: 0, leaveSalary: 0, other: 0, gross: 0, deductions: 0, additions: 0, net: 0 };
 
     return filteredEmployees.filter(e => e.active).reduce((acc, emp) => {
-        const empRecs = attendance.filter(r => r.employeeId === emp.id);
-        const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
-        const totalAdditions = overtimePay + holidayPay + weekOffPay;
-
-        const basic = emp.salary?.basic || 0;
-        const housing = emp.salary?.housing || 0;
-        const transport = emp.salary?.transport || 0;
-        const other = emp.salary?.other || 0;
-        const airTicket = emp.salary?.airTicket || 0;
-        const leaveSalary = emp.salary?.leaveSalary || 0;
-        const gross = basic + housing + transport + other + airTicket + leaveSalary;
-
-        // Updated Deduction Logic for Totals: Includes Absent, UL, AL, EL
-        const absentDays = empRecs.filter(r => 
-            r.status === AttendanceStatus.ABSENT || 
-            r.status === AttendanceStatus.UNPAID_LEAVE ||
-            r.status === AttendanceStatus.ANNUAL_LEAVE ||
-            r.status === AttendanceStatus.EMERGENCY_LEAVE
-        ).length;
-        
-        const empDeds = deductions.filter(d => {
-            const dDate = new Date(d.date);
-            return d.employeeId === emp.id && dDate.getMonth() === currentDate.getMonth() && dDate.getFullYear() === currentDate.getFullYear();
-        });
-        const variableDeductions = empDeds.reduce((sum, curr) => sum + curr.amount, 0);
-
-        const deduction = ((gross / 30) * absentDays) + variableDeductions;
-        const net = gross - deduction + totalAdditions;
+        const { basic, housing, transport, airTicket, leaveSalary, other, gross, totalAdditions, totalDeductions, netSalary } = calculatePayroll(emp, attendance, deductions, currentDate.getMonth(), currentDate.getFullYear());
 
         return {
             basic: acc.basic + basic,
@@ -2296,9 +1655,9 @@ const App: React.FC = () => {
             leaveSalary: acc.leaveSalary + leaveSalary,
             other: acc.other + other,
             gross: acc.gross + gross,
-            deductions: acc.deductions + deduction,
+            deductions: acc.deductions + totalDeductions,
             additions: acc.additions + totalAdditions,
-            net: acc.net + net
+            net: acc.net + netSalary
         };
     }, { basic: 0, housing: 0, transport: 0, airTicket: 0, leaveSalary: 0, other: 0, gross: 0, deductions: 0, additions: 0, net: 0 });
   }, [activeTab, filteredEmployees, attendance, deductions, currentDate]);
@@ -2451,7 +1810,6 @@ const App: React.FC = () => {
                   </div>
               </div>
           )}
-
           {activeTab === 'directory' && (
               <div className="space-y-4">
                   <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -2519,10 +1877,9 @@ const App: React.FC = () => {
                   </div>
               </div>
           )}
-
           {activeTab === 'ex-employees' && (
               <div className="space-y-4">
-                  <div className="flex justify-between items-center">
+                   <div className="flex justify-between items-center">
                       <h2 className="text-xl font-bold">Ex-Employees History</h2>
                       <div className="relative">
                              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -2570,10 +1927,9 @@ const App: React.FC = () => {
                   </div>
               </div>
           )}
-
           {activeTab === 'timesheet' && (
               <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row justify-between items-center bg-white p-3 rounded-xl border shadow-sm gap-4">
+                   <div className="flex flex-col md:flex-row justify-between items-center bg-white p-3 rounded-xl border shadow-sm gap-4">
                       <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-start">
                           <button onClick={() => handleMonthChange(-1)} className="p-1 hover:bg-gray-100 rounded"><ChevronLeft /></button>
                           <h2 className="text-lg font-bold w-32 text-center">{currentDate.toLocaleString('default', { month: 'short', year: '2-digit' })}</h2>
@@ -2640,7 +1996,6 @@ const App: React.FC = () => {
                                               const record = attendance.find(r => r.employeeId === emp.id && r.date === dateStr);
                                               const legend = record ? LEGEND[record.status] : null;
                                               
-                                              // Logic to display P+OT
                                               let cellLabel = legend ? legend.code : '';
                                               if (record?.status === AttendanceStatus.PRESENT && record.overtimeHours > 0) {
                                                   cellLabel = `P+${record.overtimeHours}`;
@@ -2672,10 +2027,9 @@ const App: React.FC = () => {
                   </div>
               </div>
           )}
-
           {activeTab === 'leave' && (
               <div className="space-y-4">
-                  <div className="flex justify-between items-center">
+                   <div className="flex justify-between items-center">
                       <h2 className="text-xl font-bold text-gray-800">Leave Management</h2>
                       <button onClick={() => setShowLeaveModal(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-700">
                           <FileText className="w-4 h-4" /> New Request
@@ -2736,7 +2090,10 @@ const App: React.FC = () => {
                                 className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full md:w-64" 
                              />
                           </div>
-                          <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center justify-center gap-2 w-full md:w-auto" onClick={() => window.print()}>
+                          <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center justify-center gap-2 w-full md:w-auto bg-white" onClick={handlePrintAllPayslips}>
+                              <Download className="w-4 h-4" /> Download All Payslips
+                          </button>
+                          <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center justify-center gap-2 w-full md:w-auto bg-white" onClick={() => window.print()}>
                               <Printer className="w-4 h-4" /> Print Summary
                           </button>
                       </div>
@@ -2763,35 +2120,7 @@ const App: React.FC = () => {
                               </thead>
                               <tbody className="divide-y">
                                   {filteredEmployees.filter(e => e.active).map(emp => {
-                                      const empRecs = attendance.filter(r => r.employeeId === emp.id);
-                                      const { overtimePay, holidayPay, weekOffPay } = calculateAdditionalEarnings(empRecs, emp.team);
-                                      const totalAdditions = overtimePay + holidayPay + weekOffPay;
-                                      
-                                      const basic = emp.salary?.basic || 0;
-                                      const housing = emp.salary?.housing || 0;
-                                      const transport = emp.salary?.transport || 0;
-                                      const other = emp.salary?.other || 0;
-                                      const airTicket = emp.salary?.airTicket || 0;
-                                      const leaveSalary = emp.salary?.leaveSalary || 0;
-                                      
-                                      const gross = basic + housing + transport + other + airTicket + leaveSalary;
-                                      
-                                      // Updated Logic: Absent, UL, AL, EL are unpaid
-                                      const absentDays = empRecs.filter(r => 
-                                        r.status === AttendanceStatus.ABSENT || 
-                                        r.status === AttendanceStatus.UNPAID_LEAVE ||
-                                        r.status === AttendanceStatus.ANNUAL_LEAVE ||
-                                        r.status === AttendanceStatus.EMERGENCY_LEAVE
-                                      ).length;
-                                      
-                                      const empDeds = deductions.filter(d => {
-                                            const dDate = new Date(d.date);
-                                            return d.employeeId === emp.id && dDate.getMonth() === currentDate.getMonth() && dDate.getFullYear() === currentDate.getFullYear();
-                                      });
-                                      const variableDeductions = empDeds.reduce((acc, curr) => acc + curr.amount, 0);
-
-                                      const deduction = ((gross / 30) * absentDays) + variableDeductions;
-                                      const net = gross - deduction + totalAdditions;
+                                      const { basic, housing, transport, airTicket, leaveSalary, other, gross, totalAdditions, totalDeductions, netSalary } = calculatePayroll(emp, attendance, deductions, currentDate.getMonth(), currentDate.getFullYear());
 
                                       return (
                                           <tr key={emp.id} className="hover:bg-gray-50">
@@ -2804,16 +2133,15 @@ const App: React.FC = () => {
                                               <td className="p-4 text-right text-gray-600">{leaveSalary.toLocaleString()}</td>
                                               <td className="p-4 text-right text-gray-600">{other.toLocaleString()}</td>
                                               <td className="p-4 text-right font-bold">{gross.toLocaleString()}</td>
-                                              <td className="p-4 text-right text-red-600">({deduction.toLocaleString(undefined, {maximumFractionDigits: 0})})</td>
+                                              <td className="p-4 text-right text-red-600">({totalDeductions.toLocaleString(undefined, {maximumFractionDigits: 0})})</td>
                                               <td className="p-4 text-right text-blue-600">{totalAdditions > 0 ? totalAdditions.toLocaleString() : '-'}</td>
-                                              <td className="p-4 text-right font-bold text-green-700">{net.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                                              <td className="p-4 text-right font-bold text-green-700">{netSalary.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                                               <td className="p-4 text-center print:hidden">
                                                   <button onClick={() => setShowPayslip(emp)} className="text-blue-600 hover:text-blue-800 text-xs font-bold hover:underline">Payslip</button>
                                               </td>
                                           </tr>
                                       );
                                   })}
-                                  {/* Total Row */}
                                   <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
                                       <td className="p-4" colSpan={2}>TOTAL</td>
                                       <td className="p-4 text-right">{payrollTotals.basic.toLocaleString()}</td>
@@ -2844,7 +2172,6 @@ const App: React.FC = () => {
 
        </main>
 
-       {/* Modals */}
        {showOnboarding && (
            <OnboardingWizard companies={companies} onClose={() => setShowOnboarding(false)} onComplete={() => { setShowOnboarding(false); handleRefresh(); }} />
        )}
@@ -2874,7 +2201,14 @@ const App: React.FC = () => {
            />
        )}
        {showPayslip && (
-           <PayslipModal employee={showPayslip} month={currentDate.getMonth()} year={currentDate.getFullYear()} onClose={() => setShowPayslip(null)} />
+           <PayslipModal 
+                employee={showPayslip} 
+                month={currentDate.getMonth()} 
+                year={currentDate.getFullYear()} 
+                onClose={() => setShowPayslip(null)} 
+                allAttendance={attendance}
+                allDeductions={deductions}
+           />
        )}
        {showHolidays && (
            <HolidayManagementModal isOpen={showHolidays} onClose={() => setShowHolidays(false)} />
