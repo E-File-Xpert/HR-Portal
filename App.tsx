@@ -6,7 +6,7 @@ import {
   AlertCircle, Paperclip, Eye, Edit, Lock, CheckSquare, 
   Square, Camera, RefreshCcw, Copy, FileText, Download,
   Printer, DollarSign, ChevronLeft, ChevronRight, Search,
-  History, BarChart3, FileDown, Menu, Wallet
+  History, BarChart3, FileDown, Menu, Wallet, UserMinus
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -385,7 +385,6 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, onDelete, employeeName
 };
 
 const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
-    // ... (BulkImportModal content remains same)
     const [csv, setCsv] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -439,7 +438,6 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
 };
 
 const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
-    // ... (EmployeeImportModal content remains same)
     const [csv, setCsv] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -501,7 +499,6 @@ const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
 };
 
 const HolidayManagementModal = ({ isOpen, onClose }: any) => {
-    // ... (HolidayManagementModal content remains same)
     const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
     const [newDate, setNewDate] = useState('');
     const [newName, setNewName] = useState('');
@@ -560,7 +557,6 @@ const HolidayManagementModal = ({ isOpen, onClose }: any) => {
 };
 
 const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
-    // ... (CopyAttendanceModal content remains same)
     const [sourceDate, setSourceDate] = useState(formatDateLocal(new Date()));
     const [targetDate, setTargetDate] = useState(formatDateLocal(new Date(Date.now() + 86400000)));
 
@@ -602,7 +598,6 @@ const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
 }
 
 const LeaveRequestModal = ({ employees, onClose, onSave, currentUser }: any) => {
-    // ... (LeaveRequestModal content remains same)
     const [req, setReq] = useState<any>({
         type: AttendanceStatus.ANNUAL_LEAVE,
         startDate: formatDateLocal(new Date()),
@@ -648,7 +643,6 @@ const LeaveRequestModal = ({ employees, onClose, onSave, currentUser }: any) => 
 };
 
 const DeductionModal = ({ isOpen, onClose, employees, onSave }: any) => {
-    // ... (DeductionModal content remains same)
     const [form, setForm] = useState({
         employeeId: '',
         date: new Date().toISOString().split('T')[0],
@@ -714,7 +708,6 @@ const DeductionModal = ({ isOpen, onClose, employees, onSave }: any) => {
 };
 
 const DeductionsView = ({ deductions, employees, onRefresh }: any) => {
-    // ... (DeductionsView content remains same)
     const [searchTerm, setSearchTerm] = useState('');
     const [showModal, setShowModal] = useState(false);
 
@@ -799,14 +792,10 @@ const DeductionsView = ({ deductions, employees, onRefresh }: any) => {
     );
 };
 
-// --- Missing Components Implementation ---
-
 const ReportsView = ({ employees, attendance }: any) => {
-    // Basic stats for now
     const activeStaff = employees.filter((e: any) => e.active).length;
     const inactiveStaff = employees.filter((e: any) => !e.active).length;
     
-    // Attendance stats for current month (rough approximation based on loaded attendance)
     const presentCount = attendance.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
     const absentCount = attendance.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
 
@@ -993,6 +982,8 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                             <input type="number" placeholder="Basic" className="p-2 border rounded" value={formData.salary?.basic} onChange={e => setFormData({...formData, salary: {...formData.salary!, basic: Number(e.target.value)}})} />
                             <input type="number" placeholder="Housing" className="p-2 border rounded" value={formData.salary?.housing} onChange={e => setFormData({...formData, salary: {...formData.salary!, housing: Number(e.target.value)}})} />
                             <input type="number" placeholder="Transport" className="p-2 border rounded" value={formData.salary?.transport} onChange={e => setFormData({...formData, salary: {...formData.salary!, transport: Number(e.target.value)}})} />
+                             <input type="number" placeholder="Air Ticket" className="p-2 border rounded" value={formData.salary?.airTicket} onChange={e => setFormData({...formData, salary: {...formData.salary!, airTicket: Number(e.target.value)}})} />
+                             <input type="number" placeholder="Leave Salary" className="p-2 border rounded" value={formData.salary?.leaveSalary} onChange={e => setFormData({...formData, salary: {...formData.salary!, leaveSalary: Number(e.target.value)}})} />
                         </div>
                     </div>
                 </div>
@@ -1231,7 +1222,7 @@ const PayslipModal = ({ employee, month, year, onClose, allAttendance, allDeduct
                     <div className="grid grid-cols-2 gap-8 mb-8">
                         <div>
                             <div className="text-xs text-gray-500 uppercase font-bold mb-1">Employee Details</div>
-                            <div className="grid grid-cols-2 gap-y-2 text-sm">
+                            <div class="grid grid-cols-2 gap-y-2 text-sm">
                                 <span className="text-gray-600">Name:</span><span className="font-bold">{employee.name}</span>
                                 <span className="text-gray-600">Code:</span><span className="font-mono">{employee.code}</span>
                                 <span className="text-gray-600">Designation:</span><span>{employee.designation}</span>
@@ -1739,7 +1730,7 @@ const App: React.FC = () => {
                           </button>
                       )}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                       <div onClick={() => handleDashboardFilter('active')} className="bg-white p-6 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-shadow">
                           <h3 className="text-gray-500 text-sm font-medium">Total Active Staff</h3>
                           <div className="flex justify-between items-end">
@@ -1766,6 +1757,13 @@ const App: React.FC = () => {
                           <div className="flex justify-between items-end">
                               <p className="text-3xl font-bold text-gray-800 mt-2">{employees.filter(e => e.active && e.team === 'Office Staff').length}</p>
                               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Building2 className="w-5 h-5" /></div>
+                          </div>
+                      </div>
+                      <div onClick={() => setActiveTab('ex-employees')} className="bg-white p-6 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-shadow">
+                          <h3 className="text-gray-500 text-sm font-medium">Ex-Employees</h3>
+                          <div className="flex justify-between items-end">
+                              <p className="text-3xl font-bold text-gray-800 mt-2">{employees.filter(e => !e.active).length}</p>
+                              <div className="p-2 bg-red-50 text-red-600 rounded-lg"><UserMinus className="w-5 h-5" /></div>
                           </div>
                       </div>
                   </div>
@@ -2027,141 +2025,6 @@ const App: React.FC = () => {
                   </div>
               </div>
           )}
-          {activeTab === 'leave' && (
-              <div className="space-y-4">
-                   <div className="flex justify-between items-center">
-                      <h2 className="text-xl font-bold text-gray-800">Leave Management</h2>
-                      <button onClick={() => setShowLeaveModal(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-700">
-                          <FileText className="w-4 h-4" /> New Request
-                      </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {leaveRequests.map(req => {
-                          const emp = employees.find(e => e.id === req.employeeId);
-                          return (
-                              <div key={req.id} className="bg-white p-4 rounded-xl shadow-sm border flex flex-col justify-between">
-                                  <div>
-                                      <div className="flex justify-between items-start mb-2">
-                                          <div>
-                                              <h4 className="font-bold text-gray-800">{emp?.name}</h4>
-                                              <span className="text-xs text-gray-500">{emp?.designation}</span>
-                                          </div>
-                                          <span className={`px-2 py-1 rounded text-xs font-bold ${req.status === LeaveStatus.APPROVED ? 'bg-green-100 text-green-800' : req.status === LeaveStatus.REJECTED ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                              {req.status}
-                                          </span>
-                                      </div>
-                                      <div className="bg-gray-50 p-2 rounded text-sm mb-3">
-                                          <div className="flex justify-between"><span className="text-gray-500">Type:</span> <span className="font-medium">{req.type}</span></div>
-                                          <div className="flex justify-between"><span className="text-gray-500">From:</span> <span className="font-medium">{req.startDate}</span></div>
-                                          <div className="flex justify-between"><span className="text-gray-500">To:</span> <span className="font-medium">{req.endDate}</span></div>
-                                      </div>
-                                      <p className="text-sm text-gray-600 italic mb-4">"{req.reason}"</p>
-                                      <div className="border-t pt-2 mt-2 text-xs text-gray-400">
-                                          <div>Requested by: {req.createdBy || 'Unknown'}</div>
-                                          {req.approvedBy && <div>Approved by: {req.approvedBy}</div>}
-                                      </div>
-                                  </div>
-                                  {req.status === LeaveStatus.PENDING && (
-                                      <div className="flex gap-2 mt-4">
-                                          <button onClick={() => handleLeaveAction(req.id, LeaveStatus.REJECTED)} className="flex-1 py-1.5 border border-red-200 text-red-600 rounded hover:bg-red-50 text-sm">Reject</button>
-                                          <button onClick={() => handleLeaveAction(req.id, LeaveStatus.APPROVED)} className="flex-1 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Approve</button>
-                                      </div>
-                                  )}
-                              </div>
-                          );
-                      })}
-                      {leaveRequests.length === 0 && <p className="col-span-3 text-center text-gray-400 py-12 italic">No leave requests found.</p>}
-                  </div>
-              </div>
-          )}
-
-          {activeTab === 'payroll' && (
-              <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                      <h2 className="text-xl font-bold text-gray-800">Payroll Register - {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-                      <div className="flex flex-col md:flex-row gap-2 items-center w-full md:w-auto">
-                          <div className="relative w-full md:w-auto">
-                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                             <input 
-                                type="text" 
-                                placeholder="Search..." 
-                                value={payrollSearch} 
-                                onChange={e => setPayrollSearch(e.target.value)} 
-                                className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full md:w-64" 
-                             />
-                          </div>
-                          <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center justify-center gap-2 w-full md:w-auto bg-white" onClick={handlePrintAllPayslips}>
-                              <Download className="w-4 h-4" /> Download All Payslips
-                          </button>
-                          <button className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 flex items-center justify-center gap-2 w-full md:w-auto bg-white" onClick={() => window.print()}>
-                              <Printer className="w-4 h-4" /> Print Summary
-                          </button>
-                      </div>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                      <div className="overflow-x-auto">
-                          <table className="w-full text-left text-sm whitespace-nowrap">
-                              <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
-                                  <tr>
-                                      <th className="p-4">Code</th>
-                                      <th className="p-4">Name</th>
-                                      <th className="p-4 text-right">Basic</th>
-                                      <th className="p-4 text-right">Housing</th>
-                                      <th className="p-4 text-right">Transport</th>
-                                      <th className="p-4 text-right">Air Ticket</th>
-                                      <th className="p-4 text-right">Leave Payment</th>
-                                      <th className="p-4 text-right">Other</th>
-                                      <th className="p-4 text-right font-bold">Gross</th>
-                                      <th className="p-4 text-right text-red-600">Deductions</th>
-                                      <th className="p-4 text-right text-blue-600">Additions</th>
-                                      <th className="p-4 text-right font-bold text-green-600">Net Salary</th>
-                                      <th className="p-4 text-center print:hidden">Action</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y">
-                                  {filteredEmployees.filter(e => e.active).map(emp => {
-                                      const { basic, housing, transport, airTicket, leaveSalary, other, gross, totalAdditions, totalDeductions, netSalary } = calculatePayroll(emp, attendance, deductions, currentDate.getMonth(), currentDate.getFullYear());
-
-                                      return (
-                                          <tr key={emp.id} className="hover:bg-gray-50">
-                                              <td className="p-4 font-mono text-gray-500 text-xs">{emp.code}</td>
-                                              <td className="p-4 font-bold text-gray-800">{emp.name}</td>
-                                              <td className="p-4 text-right text-gray-600">{basic.toLocaleString()}</td>
-                                              <td className="p-4 text-right text-gray-600">{housing.toLocaleString()}</td>
-                                              <td className="p-4 text-right text-gray-600">{transport.toLocaleString()}</td>
-                                              <td className="p-4 text-right text-gray-600">{airTicket.toLocaleString()}</td>
-                                              <td className="p-4 text-right text-gray-600">{leaveSalary.toLocaleString()}</td>
-                                              <td className="p-4 text-right text-gray-600">{other.toLocaleString()}</td>
-                                              <td className="p-4 text-right font-bold">{gross.toLocaleString()}</td>
-                                              <td className="p-4 text-right text-red-600">({totalDeductions.toLocaleString(undefined, {maximumFractionDigits: 0})})</td>
-                                              <td className="p-4 text-right text-blue-600">{totalAdditions > 0 ? totalAdditions.toLocaleString() : '-'}</td>
-                                              <td className="p-4 text-right font-bold text-green-700">{netSalary.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                                              <td className="p-4 text-center print:hidden">
-                                                  <button onClick={() => setShowPayslip(emp)} className="text-blue-600 hover:text-blue-800 text-xs font-bold hover:underline">Payslip</button>
-                                              </td>
-                                          </tr>
-                                      );
-                                  })}
-                                  <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
-                                      <td className="p-4" colSpan={2}>TOTAL</td>
-                                      <td className="p-4 text-right">{payrollTotals.basic.toLocaleString()}</td>
-                                      <td className="p-4 text-right">{payrollTotals.housing.toLocaleString()}</td>
-                                      <td className="p-4 text-right">{payrollTotals.transport.toLocaleString()}</td>
-                                      <td className="p-4 text-right">{payrollTotals.airTicket.toLocaleString()}</td>
-                                      <td className="p-4 text-right">{payrollTotals.leaveSalary.toLocaleString()}</td>
-                                      <td className="p-4 text-right">{payrollTotals.other.toLocaleString()}</td>
-                                      <td className="p-4 text-right">{payrollTotals.gross.toLocaleString()}</td>
-                                      <td className="p-4 text-right text-red-600">({payrollTotals.deductions.toLocaleString(undefined, {maximumFractionDigits: 0})})</td>
-                                      <td className="p-4 text-right text-blue-600">{payrollTotals.additions.toLocaleString()}</td>
-                                      <td className="p-4 text-right text-green-700">{payrollTotals.net.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                                      <td className="p-4"></td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                      </div>
-                  </div>
-              </div>
-          )}
 
           {activeTab === 'deductions' && (
               <DeductionsView deductions={deductions} employees={employees} onRefresh={handleRefresh} />
@@ -2245,3 +2108,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+    
