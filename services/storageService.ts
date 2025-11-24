@@ -627,9 +627,9 @@ export const updateSystemUser = (username: string, updatedUser: SystemUser): Sys
 
 export const deleteSystemUser = (username: string): SystemUser[] => {
     let users = getSystemUsers();
-    // Prevent deleting self if admin/creator logic is needed, but UI handles some.
-    if (username === DEFAULT_ADMIN.username || username === CREATOR_USER.username) {
-        throw new Error("Cannot delete default admin or creator.");
+    // Prevent deleting creator or specific admin logic handled in UI, but safe guard here
+    if (username === CREATOR_USER.username) {
+        throw new Error("Cannot delete System Creator.");
     }
     
     users = users.filter(u => u.username !== username);
