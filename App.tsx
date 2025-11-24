@@ -6,7 +6,8 @@ import {
   AlertCircle, Paperclip, Eye, Edit, Lock, CheckSquare, 
   Square, Camera, RefreshCcw, Copy, FileText, Download,
   Printer, DollarSign, ChevronLeft, ChevronRight, Search,
-  History, BarChart3, FileDown, Menu, Wallet, UserMinus
+  History, BarChart3, FileDown, Menu, Wallet, UserMinus,
+  Briefcase, CreditCard, FileBadge
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -25,7 +26,7 @@ import {
   importAttendanceFromCSV, importEmployeesFromCSV,
   getDeductions, saveDeduction, deleteDeduction
 } from './services/storageService';
-import { PUBLIC_HOLIDAYS } from './constants';
+import { PUBLIC_HOLIDAYS, DEFAULT_COMPANIES } from './constants';
 
 // --- Constants for Grid ---
 const LEGEND = {
@@ -187,32 +188,6 @@ const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
         reader.onerror = reject;
         reader.readAsArrayBuffer(file);
     });
-};
-
-const handleFileImport = async (file: File, callback: (text: string) => void) => {
-    const fileName = file.name.toLowerCase();
-    if (fileName.endsWith('.csv')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const text = e.target?.result as string;
-            callback(text);
-        };
-        reader.readAsText(file);
-    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-        try {
-            const data = await readFileAsArrayBuffer(file);
-            const workbook = XLSX.read(data);
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const csvText = XLSX.utils.sheet_to_csv(worksheet);
-            callback(csvText);
-        } catch (err) {
-            console.error("Error parsing Excel file", err);
-            alert("Failed to parse Excel file. Please check the format.");
-        }
-    } else {
-        alert("Unsupported file type. Please upload .csv, .xlsx, or .xls");
-    }
 };
 
 // --- Sub Components ---
@@ -384,623 +359,17 @@ const AttendanceActionModal = ({ isOpen, onClose, onSave, onDelete, employeeName
     );
 };
 
-const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
-    const [csv, setCsv] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const downloadSample = () => {
-        const headers = "EmployeeCode,Date,Status,Overtime";
-        const row1 = "10001,2025/12/01,P,2";
-        const row2 = "10002,2025/12/01,A,0";
-        const content = `${headers}\n${row1}\n${row2}`;
-        const blob = new Blob([content], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'attendance_sample_yyyy_mm_dd.csv';
-        a.click();
-    };
-
-    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            handleFileImport(e.target.files[0], (text) => setCsv(text));
-        }
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh] max-h-[80vh]">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Bulk Import Attendance</h3>
-                    <button onClick={downloadSample} className="flex items-center gap-2 text-xs text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded border border-blue-200">
-                        <Download className="w-3 h-3" /> Download Sample CSV
-                    </button>
-                </div>
-                
-                <div className="mb-4 p-4 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center text-center">
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600 font-medium mb-1">Upload CSV or Excel File</p>
-                    <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".csv, .xlsx, .xls" className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-                </div>
-
-                <p className="text-xs font-bold mb-1">Or paste CSV data here:</p>
-                <textarea value={csv} onChange={e => setCsv(e.target.value)} className="flex-1 w-full p-4 border rounded font-mono text-xs" placeholder="Format: EmployeeCode, Date(YYYY/MM/DD), Status(P/A/etc), OT(number)"></textarea>
-                
-                <div className="flex justify-end gap-2 mt-4">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={() => onImport(csv)} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Import</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
-    const [csv, setCsv] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const downloadSample = () => {
-        const headers = "Code,Name,Designation,Department,Company,JoiningDate,Type,Status,Team,Location,Basic,Housing,Transport,Other,AirTicket,LeaveSalary,EmiratesID,EIDExpiry,Passport,PassExpiry,LabourCard,LCExpiry,VacationDate";
-        const row1 = "EMP001,John Doe,Manager,IT,MyCompany,2025-01-01,Staff,Active,Office Staff,Dubai,5000,2000,1000,500,0,0,784-1234-1234567-1,2026-01-01,N123456,2030-01-01,12345678,2026-05-01,2025-12-15";
-        const content = `${headers}\n${row1}`;
-        const blob = new Blob([content], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'employee_import_sample.csv';
-        a.click();
-    };
-
-    const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            handleFileImport(e.target.files[0], (text) => setCsv(text));
-        }
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl p-6 flex flex-col h-[80vh] max-h-[80vh]">
-                <div className="flex justify-between items-center mb-4 border-b pb-4">
-                    <h3 className="font-bold text-lg text-gray-800">Bulk Import Employees</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
-                </div>
-                
-                <div className="mb-4 p-8 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center text-center hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="w-10 h-10 text-indigo-400 mb-3" />
-                    <p className="text-sm text-gray-700 font-medium mb-1">Click to Upload CSV or Excel</p>
-                    <p className="text-xs text-gray-500">or drag and drop here</p>
-                    <input type="file" ref={fileInputRef} onChange={onFileChange} accept=".csv, .xlsx, .xls" className="hidden" />
-                </div>
-
-                <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold text-gray-700">CSV Content Preview:</p>
-                    <div className="flex items-center gap-2">
-                        <button onClick={downloadSample} className="flex items-center gap-1 text-[10px] text-blue-600 hover:underline">
-                            <Download className="w-3 h-3" /> Sample
-                        </button>
-                        <span className="text-[10px] text-gray-500">Header: Code, Name, Designation...</span>
-                    </div>
-                </div>
-                <textarea value={csv} onChange={e => setCsv(e.target.value)} className="flex-1 w-full p-4 border rounded-lg font-mono text-xs bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="Paste CSV data here..."></textarea>
-                
-                <div className="flex justify-end gap-3 mt-6">
-                    <button onClick={onClose} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
-                    <button onClick={() => onImport(csv)} disabled={!csv} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50 flex items-center gap-2">
-                        <FileDown className="w-4 h-4" /> Import Employees
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const HolidayManagementModal = ({ isOpen, onClose }: any) => {
-    const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
-    const [newDate, setNewDate] = useState('');
-    const [newName, setNewName] = useState('');
-
-    useEffect(() => {
-        if (isOpen) setHolidays(getPublicHolidays());
-    }, [isOpen]);
-
-    const handleAdd = () => {
-        if (newDate && newName) {
-            const updated = savePublicHoliday({ id: Math.random().toString(), date: newDate, name: newName });
-            setHolidays(updated);
-            setNewDate('');
-            setNewName('');
-        }
-    };
-
-    const handleDelete = (id: string) => {
-        if(window.confirm("Remove this holiday?")) {
-            const updated = deletePublicHoliday(id);
-            setHolidays(updated);
-        }
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Calendar className="w-5 h-5 text-indigo-600"/> Public Holidays</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
-                </div>
-
-                <div className="flex gap-2 mb-6 items-center">
-                    <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="flex-1 border rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-10" />
-                    <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Holiday Name" className="flex-[1.5] border rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-10" />
-                    <button onClick={handleAdd} disabled={!newDate || !newName} className="bg-indigo-600 text-white px-4 h-10 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center"><Check className="w-5 h-5" /></button>
-                </div>
-
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                    {holidays.length === 0 && <p className="text-sm text-gray-400 text-center py-8 italic">No holidays configured.</p>}
-                    {holidays.map(h => (
-                        <div key={h.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border hover:border-indigo-200 transition-colors group">
-                            <div>
-                                <div className="font-bold text-sm text-gray-800">{h.name}</div>
-                                <div className="text-xs text-gray-500 flex items-center gap-1"><Calendar className="w-3 h-3"/> {h.date}</div>
-                            </div>
-                            <button onClick={() => handleDelete(h.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
-    const [sourceDate, setSourceDate] = useState(formatDateLocal(new Date()));
-    const [targetDate, setTargetDate] = useState(formatDateLocal(new Date(Date.now() + 86400000)));
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2"><Copy className="w-5 h-5 text-orange-500"/> Copy Attendance</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-600" /></button>
-                </div>
-                
-                <div className="space-y-4 mb-6">
-                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100 text-sm text-orange-800">
-                        <p className="font-bold mb-1">Warning:</p>
-                        This will copy all attendance status, hours, and notes from the source date to the target date for all employees. Existing records on the target date will be overwritten.
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Copy From</label>
-                            <input type="date" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" value={sourceDate} onChange={e => setSourceDate(e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Copy To</label>
-                            <input type="date" className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none" value={targetDate} onChange={e => setTargetDate(e.target.value)} />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
-                    <button onClick={() => onCopy(sourceDate, targetDate)} className="px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700">Confirm Copy</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-const LeaveRequestModal = ({ employees, onClose, onSave, currentUser }: any) => {
-    const [req, setReq] = useState<any>({
-        type: AttendanceStatus.ANNUAL_LEAVE,
-        startDate: formatDateLocal(new Date()),
-        endDate: formatDateLocal(new Date()),
-        reason: ''
-    });
-
-    const handleSubmit = () => {
-        if (!req.employeeId || !req.reason) return alert("Missing fields");
-        saveLeaveRequest(req, currentUser.name || currentUser.username);
-        onSave();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full shadow-xl">
-                <h3 className="font-bold mb-4 text-lg">New Leave Request</h3>
-                <div className="space-y-3">
-                    <select className="w-full p-2 border rounded" onChange={e => setReq({ ...req, employeeId: e.target.value })}>
-                        <option value="">Select Employee</option>
-                        {employees.map((e: Employee) => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
-                    <select className="w-full p-2 border rounded" value={req.type} onChange={e => setReq({ ...req, type: e.target.value })}>
-                        <option value={AttendanceStatus.ANNUAL_LEAVE}>Annual Leave</option>
-                        <option value={AttendanceStatus.SICK_LEAVE}>Sick Leave</option>
-                        <option value={AttendanceStatus.UNPAID_LEAVE}>Unpaid Leave</option>
-                        <option value={AttendanceStatus.EMERGENCY_LEAVE}>Emergency Leave</option>
-                    </select>
-                    <div className="grid grid-cols-2 gap-2">
-                        <input type="date" className="p-2 border rounded" value={req.startDate} onChange={e => setReq({ ...req, startDate: e.target.value })} />
-                        <input type="date" className="p-2 border rounded" value={req.endDate} onChange={e => setReq({ ...req, endDate: e.target.value })} />
-                    </div>
-                    <textarea className="w-full p-2 border rounded h-24 resize-none" placeholder="Reason" value={req.reason} onChange={e => setReq({ ...req, reason: e.target.value })}></textarea>
-                    <div className="text-xs text-gray-500">Created by: {currentUser.name}</div>
-                </div>
-                <div className="flex justify-end gap-2 mt-4">
-                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
-                    <button onClick={handleSubmit} className="px-4 py-2 bg-indigo-600 text-white rounded">Submit</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const DeductionModal = ({ isOpen, onClose, employees, onSave }: any) => {
-    const [form, setForm] = useState({
-        employeeId: '',
-        date: new Date().toISOString().split('T')[0],
-        type: 'Salary Advance',
-        amount: 0,
-        note: ''
-    });
-
-    const handleSubmit = () => {
-        if (!form.employeeId || form.amount <= 0) return alert("Please select employee and enter a valid amount");
-        onSave(form);
-        onClose();
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg text-gray-800">Add New Deduction</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
-                </div>
-                <div className="space-y-3">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                        <select className="w-full p-2 border rounded" value={form.employeeId} onChange={e => setForm({ ...form, employeeId: e.target.value })}>
-                            <option value="">Select Employee</option>
-                            {employees.filter((e: Employee) => e.active).map((e: Employee) => <option key={e.id} value={e.id}>{e.name} ({e.code})</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                        <input type="date" className="w-full p-2 border rounded" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Deduction Type</label>
-                        <select className="w-full p-2 border rounded" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                            <option value="Salary Advance">Salary Advance</option>
-                            <option value="Loan Amount">Loan Amount</option>
-                            <option value="Damage Material/Asset">Damage Material/Asset</option>
-                            <option value="Fine Amount">Fine Amount</option>
-                            <option value="Penalty">Penalty</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Amount (AED)</label>
-                        <input type="number" className="w-full p-2 border rounded" value={form.amount} onChange={e => setForm({ ...form, amount: parseFloat(e.target.value) })} />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                        <textarea className="w-full p-2 border rounded h-20 resize-none" placeholder="Additional details..." value={form.note} onChange={e => setForm({ ...form, note: e.target.value })}></textarea>
-                    </div>
-                </div>
-                <div className="flex justify-end gap-2 mt-6">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                    <button onClick={handleSubmit} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save Deduction</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const DeductionsView = ({ deductions, employees, onRefresh }: any) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [showModal, setShowModal] = useState(false);
-
-    const handleSave = (data: any) => {
-        saveDeduction(data);
-        onRefresh();
-    };
-
-    const handleDelete = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this deduction?")) {
-            deleteDeduction(id);
-            onRefresh();
-        }
-    };
-
-    const filteredDeductions = deductions.filter((d: any) => {
-        const emp = employees.find((e: any) => e.id === d.employeeId);
-        return emp && (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.code.includes(searchTerm));
-    }).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    return (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-800">Deductions Management</h2>
-                <div className="flex gap-4 items-center">
-                    <div className="relative">
-                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                         <input 
-                            type="text" 
-                            placeholder="Search Employee..." 
-                            value={searchTerm} 
-                            onChange={e => setSearchTerm(e.target.value)} 
-                            className="pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64" 
-                         />
-                    </div>
-                    <button onClick={() => setShowModal(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-700">
-                        <Wallet className="w-4 h-4" /> Add Deduction
-                    </button>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                    <thead className="bg-gray-50 border-b font-bold text-gray-600 uppercase text-xs">
-                        <tr>
-                            <th className="p-4">Date</th>
-                            <th className="p-4">Employee</th>
-                            <th className="p-4">Type</th>
-                            <th className="p-4">Note</th>
-                            <th className="p-4 text-right">Amount (AED)</th>
-                            <th className="p-4 text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {filteredDeductions.length === 0 && (
-                            <tr><td colSpan={6} className="p-6 text-center text-gray-400 italic">No deductions found.</td></tr>
-                        )}
-                        {filteredDeductions.map((d: any) => {
-                            const emp = employees.find((e: any) => e.id === d.employeeId);
-                            return (
-                                <tr key={d.id} className="hover:bg-gray-50">
-                                    <td className="p-4 text-gray-500">{d.date}</td>
-                                    <td className="p-4">
-                                        <div className="font-bold text-gray-800">{emp?.name}</div>
-                                        <div className="text-xs text-gray-500">{emp?.code}</div>
-                                    </td>
-                                    <td className="p-4"><span className="bg-red-50 text-red-600 px-2 py-1 rounded text-xs font-bold">{d.type}</span></td>
-                                    <td className="p-4 text-gray-500 truncate max-w-[200px]">{d.note}</td>
-                                    <td className="p-4 text-right font-bold text-red-600">{d.amount.toLocaleString()}</td>
-                                    <td className="p-4 text-center">
-                                        <button onClick={() => handleDelete(d.id)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 className="w-4 h-4" /></button>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
-
-            <DeductionModal isOpen={showModal} onClose={() => setShowModal(false)} employees={employees} onSave={handleSave} />
-        </div>
-    );
-};
-
-const ReportsView = ({ employees, attendance }: any) => {
-    const activeStaff = employees.filter((e: any) => e.active).length;
-    const inactiveStaff = employees.filter((e: any) => !e.active).length;
-    
-    const presentCount = attendance.filter((r: any) => r.status === AttendanceStatus.PRESENT).length;
-    const absentCount = attendance.filter((r: any) => r.status === AttendanceStatus.ABSENT).length;
-
-    return (
-        <div className="space-y-6">
-             <h2 className="text-xl font-bold text-gray-800">Reports & Analytics</h2>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                 <div className="bg-white p-4 rounded-xl shadow-sm border">
-                     <div className="text-gray-500 text-sm">Active Staff</div>
-                     <div className="text-2xl font-bold">{activeStaff}</div>
-                 </div>
-                 <div className="bg-white p-4 rounded-xl shadow-sm border">
-                     <div className="text-gray-500 text-sm">Ex-Employees</div>
-                     <div className="text-2xl font-bold">{inactiveStaff}</div>
-                 </div>
-                 <div className="bg-white p-4 rounded-xl shadow-sm border">
-                     <div className="text-gray-500 text-sm">Total Presents (View Range)</div>
-                     <div className="text-2xl font-bold text-green-600">{presentCount}</div>
-                 </div>
-                 <div className="bg-white p-4 rounded-xl shadow-sm border">
-                     <div className="text-gray-500 text-sm">Total Absents (View Range)</div>
-                     <div className="text-2xl font-bold text-red-600">{absentCount}</div>
-                 </div>
-             </div>
-             <div className="bg-white p-8 rounded-xl shadow-sm border text-center text-gray-500 italic">
-                 Detailed charts and exportable reports coming soon.
-             </div>
-        </div>
-    );
-};
-
-const AboutView = ({ currentUser }: any) => {
-    const [data, setData] = useState<AboutData>(getAboutData());
-    const [isEditing, setIsEditing] = useState(false);
-
-    const handleSave = () => {
-        saveAboutData(data);
-        setIsEditing(false);
-    };
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const b64 = await readFileAsBase64(e.target.files[0]);
-            setData({ ...data, profileImage: b64 });
-        }
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 h-32 relative">
-                    {currentUser.role === UserRole.CREATOR && (
-                         <button onClick={() => setIsEditing(!isEditing)} className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition-colors">
-                             <Edit className="w-5 h-5" />
-                         </button>
-                    )}
-                </div>
-                <div className="px-8 pb-8">
-                    <div className="relative -mt-16 mb-6 flex justify-center">
-                        <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-gray-200 overflow-hidden relative group">
-                            {data.profileImage ? (
-                                <img src={data.profileImage} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100"><User className="w-16 h-16"/></div>
-                            )}
-                            {isEditing && (
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                    <label className="cursor-pointer text-white text-xs flex flex-col items-center">
-                                        <Camera className="w-6 h-6 mb-1"/> Change
-                                        <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
-                                    </label>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {isEditing ? (
-                        <div className="space-y-4 max-w-lg mx-auto">
-                            <input type="text" value={data.name} onChange={e => setData({...data, name: e.target.value})} className="w-full p-2 border rounded font-bold text-center text-xl" placeholder="Name" />
-                            <input type="text" value={data.title} onChange={e => setData({...data, title: e.target.value})} className="w-full p-2 border rounded text-center text-indigo-600" placeholder="Title" />
-                            <textarea value={data.bio} onChange={e => setData({...data, bio: e.target.value})} className="w-full p-2 border rounded h-32 text-center" placeholder="Bio"></textarea>
-                            <input type="text" value={data.email} onChange={e => setData({...data, email: e.target.value})} className="w-full p-2 border rounded text-center" placeholder="Email" />
-                            <input type="text" value={data.contactInfo} onChange={e => setData({...data, contactInfo: e.target.value})} className="w-full p-2 border rounded text-center" placeholder="Contact Info" />
-                            <button onClick={handleSave} className="w-full bg-indigo-600 text-white py-2 rounded font-bold">Save Changes</button>
-                        </div>
-                    ) : (
-                        <div className="text-center space-y-4">
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">{data.name}</h1>
-                                <p className="text-indigo-600 font-medium">{data.title}</p>
-                            </div>
-                            <p className="text-gray-600 max-w-2xl mx-auto leading-relaxed">{data.bio}</p>
-                            <div className="flex flex-col md:flex-row justify-center items-center gap-4 text-sm text-gray-500 pt-4 border-t">
-                                <span>{data.email}</span>
-                                <span className="hidden md:inline">•</span>
-                                <span>{data.contactInfo}</span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-            <div className="text-center mt-8 text-xs text-gray-400">
-                v1.0.0 &copy; 2025 ShiftSync. All rights reserved.
-            </div>
-        </div>
-    );
-};
-
-const RehireModal = ({ employee, onClose, onConfirm }: any) => {
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [reason, setReason] = useState('');
-
-    if (!employee) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl">
-                <h3 className="font-bold text-lg mb-4">Re-join Employee: {employee.name}</h3>
-                <div className="space-y-4 mb-6">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Re-joining Date</label>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border rounded" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Reason / Notes</label>
-                        <textarea value={reason} onChange={e => setReason(e.target.value)} className="w-full p-2 border rounded h-24" placeholder="e.g., Returning from vacation, Contract renewed"></textarea>
-                    </div>
-                </div>
-                <div className="flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
-                    <button onClick={() => onConfirm(employee.id, date, reason)} className="px-4 py-2 bg-green-600 text-white rounded font-bold">Confirm Re-join</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
-    const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState<Partial<Employee>>({
-        name: '', code: '', designation: '', department: '',
-        company: companies[0] || '', joiningDate: new Date().toISOString().split('T')[0],
-        type: StaffType.WORKER, status: 'Active', team: 'Internal Team',
-        workLocation: '', leaveBalance: 0,
-        salary: { basic: 0, housing: 0, transport: 0, other: 0, airTicket: 0, leaveSalary: 0 },
-        active: true, documents: {}
-    });
-
-    const handleSave = () => {
-        saveEmployee({ ...formData, id: Math.random().toString(36).substr(2, 9) } as Employee);
-        onComplete();
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl h-[80vh] flex flex-col rounded-xl shadow-2xl">
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-                    <h3 className="font-bold text-lg">Onboard New Employee</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <input placeholder="Name" className="p-2 border rounded" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                        <input placeholder="Code" className="p-2 border rounded" value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} />
-                        <select className="p-2 border rounded" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})}>
-                            {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <select className="p-2 border rounded" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as StaffType})}>
-                            <option value={StaffType.WORKER}>Worker</option>
-                            <option value={StaffType.OFFICE}>Office Staff</option>
-                        </select>
-                         <select className="p-2 border rounded" value={formData.team} onChange={e => setFormData({...formData, team: e.target.value as any})}>
-                            <option value="Internal Team">Internal Team</option>
-                            <option value="External Team">External Team</option>
-                            <option value="Office Staff">Office Staff</option>
-                        </select>
-                        <input placeholder="Designation" className="p-2 border rounded" value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} />
-                         <input placeholder="Department" className="p-2 border rounded" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} />
-                         <input type="date" className="p-2 border rounded" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} />
-                    </div>
-                    <div className="pt-4 border-t">
-                        <h4 className="font-bold mb-2">Salary Structure</h4>
-                        <div className="grid grid-cols-3 gap-4">
-                            <input type="number" placeholder="Basic" className="p-2 border rounded" value={formData.salary?.basic} onChange={e => setFormData({...formData, salary: {...formData.salary!, basic: Number(e.target.value)}})} />
-                            <input type="number" placeholder="Housing" className="p-2 border rounded" value={formData.salary?.housing} onChange={e => setFormData({...formData, salary: {...formData.salary!, housing: Number(e.target.value)}})} />
-                            <input type="number" placeholder="Transport" className="p-2 border rounded" value={formData.salary?.transport} onChange={e => setFormData({...formData, salary: {...formData.salary!, transport: Number(e.target.value)}})} />
-                             <input type="number" placeholder="Air Ticket" className="p-2 border rounded" value={formData.salary?.airTicket} onChange={e => setFormData({...formData, salary: {...formData.salary!, airTicket: Number(e.target.value)}})} />
-                             <input type="number" placeholder="Leave Salary" className="p-2 border rounded" value={formData.salary?.leaveSalary} onChange={e => setFormData({...formData, salary: {...formData.salary!, leaveSalary: Number(e.target.value)}})} />
-                        </div>
-                    </div>
-                </div>
-                <div className="p-4 border-t flex justify-end gap-2 bg-gray-50 rounded-b-xl">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600">Cancel</button>
-                    <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded">Complete Onboarding</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
     const [details, setDetails] = useState<OffboardingDetails>({
         type: 'Resignation', exitDate: new Date().toISOString().split('T')[0], reason: '',
         gratuity: 0, leaveEncashment: 0, salaryDues: 0, otherDues: 0, deductions: 0, netSettlement: 0, assetsReturned: false, notes: ''
     });
+
+    useEffect(() => {
+        // Auto calculate net settlement
+        const net = (details.gratuity + details.leaveEncashment + details.salaryDues + details.otherDues) - details.deductions;
+        setDetails(prev => ({ ...prev, netSettlement: net }));
+    }, [details.gratuity, details.leaveEncashment, details.salaryDues, details.otherDues, details.deductions]);
 
     const handleSubmit = () => {
         offboardEmployee(employee.id, details);
@@ -1009,119 +378,87 @@ const OffboardingWizard = ({ employee, onClose, onComplete }: any) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-2xl">
-                <h3 className="font-bold text-lg mb-4">Offboard: {employee.name}</h3>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                    <div className="grid grid-cols-2 gap-4">
-                         <select className="p-2 border rounded" value={details.type} onChange={e => setDetails({...details, type: e.target.value as any})}>
-                            <option>Resignation</option><option>Termination</option><option>End of Contract</option>
-                        </select>
-                        <input type="date" className="p-2 border rounded" value={details.exitDate} onChange={e => setDetails({...details, exitDate: e.target.value})} />
+            <div className="bg-white w-full max-w-2xl flex flex-col rounded-xl shadow-2xl h-[90vh] max-h-[90vh]">
+                <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                    <div>
+                        <h3 className="font-bold text-lg text-gray-800">Offboard Employee</h3>
+                        <p className="text-sm text-gray-500">{employee.name} ({employee.code})</p>
                     </div>
-                    <textarea className="w-full p-2 border rounded" placeholder="Reason" value={details.reason} onChange={e => setDetails({...details, reason: e.target.value})} />
-                    <div className="grid grid-cols-2 gap-4">
-                        <input type="number" placeholder="Gratuity" className="p-2 border rounded" value={details.gratuity} onChange={e => setDetails({...details, gratuity: Number(e.target.value)})} />
-                        <input type="number" placeholder="Salary Dues" className="p-2 border rounded" value={details.salaryDues} onChange={e => setDetails({...details, salaryDues: Number(e.target.value)})} />
-                    </div>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
                 </div>
-                <div className="flex justify-end gap-2 mt-6">
-                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
-                    <button onClick={handleSubmit} className="px-4 py-2 bg-red-600 text-white rounded">Confirm Exit</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const UserManagementModal = ({ isOpen, onClose }: any) => {
-    const [users, setUsers] = useState(getSystemUsers());
-    const [newUser, setNewUser] = useState<Partial<SystemUser>>({ username: '', password: '', name: '', role: UserRole.HR });
-
-    if (!isOpen) return null;
-
-    const handleAdd = () => {
-        if (!newUser.username || !newUser.password) return;
-        try {
-            const updated = addSystemUser({ ...newUser, active: true, permissions: { canViewDashboard: true } } as SystemUser);
-            setUsers(updated);
-            setNewUser({ username: '', password: '', name: '', role: UserRole.HR });
-        } catch (e) { alert(e); }
-    };
-
-    const handleDelete = (u: string) => {
-        if(window.confirm("Delete user?")) setUsers(deleteSystemUser(u));
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-lg p-6 rounded-xl shadow-2xl">
-                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">System Users</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
-                </div>
-                <div className="space-y-4 mb-4">
-                    <div className="flex gap-2">
-                        <input placeholder="Username" className="p-2 border rounded flex-1" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} />
-                        <input placeholder="Password" className="p-2 border rounded flex-1" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
-                    </div>
-                     <button onClick={handleAdd} className="w-full bg-indigo-600 text-white py-2 rounded">Add User</button>
-                </div>
-                <div className="space-y-2">
-                    {users.map(u => (
-                        <div key={u.username} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
-                            <span>{u.username} ({u.role})</span>
-                            <button onClick={() => handleDelete(u.username)} className="text-red-500"><Trash2 className="w-4 h-4" /></button>
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* General Section */}
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <h4 className="font-bold text-blue-800 mb-3 text-sm uppercase">Exit Details</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Exit Type</label>
+                                <select className="w-full p-2 border rounded text-sm" value={details.type} onChange={e => setDetails({...details, type: e.target.value as any})}>
+                                    <option>Resignation</option><option>Termination</option><option>End of Contract</option><option>Absconding</option>
+                                </select>
+                             </div>
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Last Working Day</label>
+                                <input type="date" className="w-full p-2 border rounded text-sm" value={details.exitDate} onChange={e => setDetails({...details, exitDate: e.target.value})} />
+                             </div>
                         </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any) => {
-    const [newCo, setNewCo] = useState('');
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md p-6 rounded-xl shadow-2xl">
-                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Manage Companies</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
-                </div>
-                <div className="flex gap-2 mb-4">
-                    <input className="flex-1 p-2 border rounded" value={newCo} onChange={e => setNewCo(e.target.value)} placeholder="New Company Name" />
-                    <button onClick={() => { if(newCo) { onDataChange(addCompany(newCo)); setNewCo(''); } }} className="bg-indigo-600 text-white px-4 rounded">Add</button>
-                </div>
-                <ul className="space-y-2 max-h-60 overflow-y-auto">
-                    {companies.map((c: string) => (
-                        <li key={c} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
-                            <span className="text-sm">{c}</span>
-                            <button onClick={() => { if(window.confirm('Delete?')) onDataChange(deleteCompany(c)); }} className="text-red-500"><Trash2 className="w-4 h-4" /></button>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        </div>
-    );
-};
-
-const ExEmployeeDetailsModal = ({ employee, onClose }: any) => {
-    if (!employee) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-             <div className="bg-white w-full max-w-md p-6 rounded-xl shadow-2xl">
-                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg">Exit Details: {employee.name}</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
-                </div>
-                <div className="space-y-2 text-sm">
-                    <div className="flex justify-between"><span>Exit Date:</span> <strong>{employee.offboardingDetails?.exitDate}</strong></div>
-                    <div className="flex justify-between"><span>Type:</span> <strong>{employee.offboardingDetails?.type}</strong></div>
-                    <div className="bg-gray-50 p-2 rounded italic text-gray-600 my-2">{employee.offboardingDetails?.reason}</div>
-                    <div className="border-t pt-2">
-                        <div className="flex justify-between"><span>Final Settlement:</span> <strong className="text-green-600">{employee.offboardingDetails?.netSettlement}</strong></div>
+                        <div className="mt-4">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Reason for Leaving</label>
+                            <textarea className="w-full p-2 border rounded text-sm h-16 resize-none" placeholder="Enter detailed reason..." value={details.reason} onChange={e => setDetails({...details, reason: e.target.value})} />
+                        </div>
                     </div>
+
+                    {/* Financials */}
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                        <h4 className="font-bold text-green-800 mb-3 text-sm uppercase">Full & Final Settlement</h4>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gratuity (AED)</label>
+                                <input type="number" className="w-full p-2 border rounded text-sm font-bold" value={details.gratuity} onChange={e => setDetails({...details, gratuity: Number(e.target.value)})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Salary Dues (AED)</label>
+                                <input type="number" className="w-full p-2 border rounded text-sm font-bold" value={details.salaryDues} onChange={e => setDetails({...details, salaryDues: Number(e.target.value)})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Leave Encashment (AED)</label>
+                                <input type="number" className="w-full p-2 border rounded text-sm font-bold" value={details.leaveEncashment} onChange={e => setDetails({...details, leaveEncashment: Number(e.target.value)})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Other Earnings (AED)</label>
+                                <input type="number" className="w-full p-2 border rounded text-sm font-bold" value={details.otherDues} onChange={e => setDetails({...details, otherDues: Number(e.target.value)})} />
+                            </div>
+                        </div>
+                         <div className="bg-red-50 p-3 rounded border border-red-100 mb-4">
+                             <label className="block text-xs font-bold text-red-600 uppercase mb-1">Total Deductions (AED)</label>
+                             <input type="number" className="w-full p-2 border rounded text-sm font-bold text-red-600" value={details.deductions} onChange={e => setDetails({...details, deductions: Number(e.target.value)})} placeholder="Loans, damages, etc." />
+                         </div>
+                         <div className="flex justify-between items-center bg-white p-4 rounded border shadow-sm">
+                             <span className="font-bold text-gray-700">Net Settlement Amount:</span>
+                             <span className="text-xl font-bold text-green-700">AED {details.netSettlement.toLocaleString()}</span>
+                         </div>
+                    </div>
+
+                    {/* Checklist */}
+                     <div className="bg-gray-50 p-4 rounded-lg border">
+                        <h4 className="font-bold text-gray-800 mb-3 text-sm uppercase">Clearance Checklist</h4>
+                        <label className="flex items-center gap-3 p-3 bg-white border rounded cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" className="w-5 h-5 accent-indigo-600" checked={details.assetsReturned} onChange={e => setDetails({...details, assetsReturned: e.target.checked})} />
+                            <span className="text-sm font-medium">All Company Assets Returned (Laptop, ID, Uniform, Keys, etc.)</span>
+                        </label>
+                        <div className="mt-4">
+                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Additional Notes</label>
+                            <textarea className="w-full p-2 border rounded text-sm h-16 resize-none" placeholder="Any private notes for HR..." value={details.notes} onChange={e => setDetails({...details, notes: e.target.value})} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 border-t flex justify-end gap-2 bg-gray-50 rounded-b-xl">
+                    <button onClick={onClose} className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-100 font-medium">Cancel</button>
+                    <button onClick={handleSubmit} className="px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold flex items-center gap-2">
+                        <LogOut className="w-4 h-4"/> Confirm Offboarding
+                    </button>
                 </div>
             </div>
         </div>
@@ -1132,26 +469,148 @@ const ViewEmployeeModal = ({ employee, onClose }: any) => {
     if (!employee) return null;
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-             <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-xl">{employee.name}</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
-                </div>
-                <div className="grid grid-cols-2 gap-6 text-sm">
+             <div className="bg-white w-full max-w-4xl p-0 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
+                <div className="p-6 bg-gradient-to-r from-indigo-700 to-indigo-900 text-white flex justify-between items-start rounded-t-xl shrink-0">
                     <div>
-                        <h4 className="font-bold text-gray-500 uppercase text-xs mb-2">Personal & Work</h4>
-                        <div className="space-y-2">
-                            <p><span className="text-gray-500">Code:</span> {employee.code}</p>
-                            <p><span className="text-gray-500">Designation:</span> {employee.designation}</p>
-                            <p><span className="text-gray-500">Company:</span> {employee.company}</p>
-                            <p><span className="text-gray-500">Joining:</span> {employee.joiningDate}</p>
+                        <h3 className="font-bold text-2xl mb-1">{employee.name}</h3>
+                        <div className="flex gap-3 text-sm opacity-80">
+                            <span>{employee.designation}</span>
+                            <span>•</span>
+                            <span>{employee.code}</span>
                         </div>
                     </div>
-                     <div>
-                        <h4 className="font-bold text-gray-500 uppercase text-xs mb-2">Documents</h4>
-                        <div className="space-y-2">
-                            <p><span className="text-gray-500">EID Expiry:</span> {employee.documents?.emiratesIdExpiry || '-'}</p>
-                            <p><span className="text-gray-500">Passport Expiry:</span> {employee.documents?.passportExpiry || '-'}</p>
+                    <button onClick={onClose} className="text-white/70 hover:text-white"><XCircle className="w-8 h-8" /></button>
+                </div>
+
+                <div className="p-6 space-y-8 bg-gray-50 flex-1 overflow-y-auto">
+                    {/* Employment Section */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border">
+                        <h4 className="flex items-center gap-2 font-bold text-gray-800 text-lg mb-4 pb-2 border-b">
+                            <Briefcase className="w-5 h-5 text-indigo-600" /> Employment Details
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Company</p>
+                                <p className="font-medium text-gray-800">{employee.company}</p>
+                            </div>
+                             <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Department</p>
+                                <p className="font-medium text-gray-800">{employee.department}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Team</p>
+                                <p className="font-medium text-gray-800">{employee.team}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Joining Date</p>
+                                <p className="font-medium text-gray-800">{employee.joiningDate}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Status</p>
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${employee.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{employee.status}</span>
+                            </div>
+                             <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Work Location</p>
+                                <p className="font-medium text-gray-800">{employee.workLocation || '-'}</p>
+                            </div>
+                             <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Staff Type</p>
+                                <p className="font-medium text-gray-800">{employee.type}</p>
+                            </div>
+                             <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-1">Leave Balance</p>
+                                <p className="font-bold text-indigo-600">{employee.leaveBalance} Days</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Financial Section */}
+                     <div className="bg-white p-6 rounded-xl shadow-sm border">
+                        <h4 className="flex items-center gap-2 font-bold text-gray-800 text-lg mb-4 pb-2 border-b">
+                            <CreditCard className="w-5 h-5 text-green-600" /> Financial & Banking
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-3">Salary Breakdown (AED)</p>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between border-b border-dashed pb-1">
+                                        <span className="text-gray-600">Basic</span>
+                                        <span className="font-bold">{employee.salary?.basic.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-dashed pb-1">
+                                        <span className="text-gray-600">Housing</span>
+                                        <span className="font-bold">{employee.salary?.housing.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-dashed pb-1">
+                                        <span className="text-gray-600">Transport</span>
+                                        <span className="font-bold">{employee.salary?.transport.toLocaleString()}</span>
+                                    </div>
+                                     <div className="flex justify-between border-b border-dashed pb-1">
+                                        <span className="text-gray-600">Air Ticket</span>
+                                        <span className="font-bold">{employee.salary?.airTicket.toLocaleString()}</span>
+                                    </div>
+                                     <div className="flex justify-between border-b border-dashed pb-1">
+                                        <span className="text-gray-600">Leave Salary</span>
+                                        <span className="font-bold">{employee.salary?.leaveSalary.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-dashed pb-1">
+                                        <span className="text-gray-600">Other</span>
+                                        <span className="font-bold">{employee.salary?.other.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between pt-1 text-base">
+                                        <span className="font-bold text-gray-800">Total Gross</span>
+                                        <span className="font-bold text-green-700">
+                                            {(
+                                                (employee.salary?.basic||0) + 
+                                                (employee.salary?.housing||0) + 
+                                                (employee.salary?.transport||0) + 
+                                                (employee.salary?.airTicket||0) + 
+                                                (employee.salary?.leaveSalary||0) + 
+                                                (employee.salary?.other||0)
+                                            ).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-400 uppercase font-bold mb-3">Bank Details</p>
+                                <div className="bg-gray-50 p-4 rounded-lg border text-sm space-y-3">
+                                    <div>
+                                        <span className="block text-xs text-gray-500">Bank Name</span>
+                                        <span className="font-medium text-gray-900">{employee.bankName || 'Cash'}</span>
+                                    </div>
+                                    {employee.iban && (
+                                        <div>
+                                            <span className="block text-xs text-gray-500">IBAN / Account Number</span>
+                                            <span className="font-mono text-gray-900 font-medium">{employee.iban}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Documents Section */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border">
+                        <h4 className="flex items-center gap-2 font-bold text-gray-800 text-lg mb-4 pb-2 border-b">
+                            <FileBadge className="w-5 h-5 text-orange-600" /> Documents & IDs
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="p-3 border rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Emirates ID</p>
+                                <p className="text-sm font-mono font-medium mb-1">{employee.documents?.emiratesId || 'N/A'}</p>
+                                <p className={`text-xs ${getDateColor(employee.documents?.emiratesIdExpiry)}`}>Exp: {employee.documents?.emiratesIdExpiry || '-'}</p>
+                            </div>
+                             <div className="p-3 border rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Passport</p>
+                                <p className="text-sm font-mono font-medium mb-1">{employee.documents?.passportNumber || 'N/A'}</p>
+                                <p className={`text-xs ${getDateColor(employee.documents?.passportExpiry, 'passport')}`}>Exp: {employee.documents?.passportExpiry || '-'}</p>
+                            </div>
+                             <div className="p-3 border rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Labour Card</p>
+                                <p className="text-sm font-mono font-medium mb-1">{employee.documents?.labourCardNumber || 'N/A'}</p>
+                                <p className={`text-xs ${getDateColor(employee.documents?.labourCardExpiry)}`}>Exp: {employee.documents?.labourCardExpiry || '-'}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1165,24 +624,144 @@ const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
 
     const handleSave = () => onSave(data);
 
+    // Grouping for cleaner UI
+    const personalFields = [
+        { key: 'name', label: 'Full Name' },
+        { key: 'code', label: 'Employee Code' },
+        { key: 'designation', label: 'Designation' },
+        { key: 'department', label: 'Department' },
+        { key: 'joiningDate', label: 'Joining Date', type: 'date' },
+        { key: 'workLocation', label: 'Work Location' }
+    ];
+
     return (
          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-xl">Edit Employee</h3>
-                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500" /></button>
+            <div className="bg-white w-full max-w-4xl p-0 rounded-xl shadow-2xl max-h-[90vh] flex flex-col">
+                <div className="p-6 border-b flex justify-between items-center bg-gray-50 rounded-t-xl shrink-0">
+                    <h3 className="font-bold text-xl text-gray-800">Edit Employee Details</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                     <input className="p-2 border rounded" value={data.name} onChange={e => setData({...data, name: e.target.value})} placeholder="Name" />
-                     <input className="p-2 border rounded" value={data.code} onChange={e => setData({...data, code: e.target.value})} placeholder="Code" />
-                     <select className="p-2 border rounded" value={data.company} onChange={e => setData({...data, company: e.target.value})}>
-                        {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                     </select>
-                     <input className="p-2 border rounded" value={data.designation} onChange={e => setData({...data, designation: e.target.value})} placeholder="Designation" />
+                
+                <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-gray-50/50">
+                    {/* Section 1: Personal & Work */}
+                    <div className="bg-white p-6 rounded-lg shadow-sm border">
+                        <h4 className="font-bold text-gray-800 mb-4 pb-2 border-b">Personal & Work Information</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {personalFields.map(f => (
+                                <div key={f.key}>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{f.label}</label>
+                                    <input 
+                                        type={f.type || 'text'} 
+                                        className="w-full p-2 border rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                        value={(data as any)[f.key] || ''} 
+                                        onChange={e => setData({...data, [f.key]: e.target.value})} 
+                                    />
+                                </div>
+                            ))}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company</label>
+                                <select className="w-full p-2 border rounded text-sm" value={data.company} onChange={e => setData({...data, company: e.target.value})}>
+                                    {companies.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
+                                <select className="w-full p-2 border rounded text-sm" value={data.status} onChange={e => setData({...data, status: e.target.value as any, active: e.target.value === 'Active'})}>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Team</label>
+                                <select className="w-full p-2 border rounded text-sm" value={data.team} onChange={e => setData({...data, team: e.target.value as any})}>
+                                    <option value="Internal Team">Internal Team</option>
+                                    <option value="External Team">External Team</option>
+                                    <option value="Office Staff">Office Staff</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Staff Type</label>
+                                <select className="w-full p-2 border rounded text-sm" value={data.type} onChange={e => setData({...data, type: e.target.value as any})}>
+                                    <option value={StaffType.WORKER}>Worker</option>
+                                    <option value={StaffType.OFFICE}>Office Staff</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Leave Balance</label>
+                                <input type="number" className="w-full p-2 border rounded text-sm" value={data.leaveBalance} onChange={e => setData({...data, leaveBalance: Number(e.target.value)})} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section 2: Salary & Bank */}
+                     <div className="bg-white p-6 rounded-lg shadow-sm border">
+                        <h4 className="font-bold text-gray-800 mb-4 pb-2 border-b">Salary Structure & Banking</h4>
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                            {['basic', 'housing', 'transport', 'airTicket', 'leaveSalary', 'other'].map(key => (
+                                <div key={key}>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">{key.replace(/([A-Z])/g, ' $1')}</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full p-2 border rounded text-sm" 
+                                        value={(data.salary as any)?.[key]} 
+                                        onChange={e => setData({...data, salary: { ...data.salary, [key]: Number(e.target.value) }})} 
+                                    />
+                                </div>
+                            ))}
+                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                             <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bank Name</label>
+                                <input className="w-full p-2 border rounded text-sm" value={data.bankName || ''} onChange={e => setData({...data, bankName: e.target.value})} placeholder="e.g. ADCB" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">IBAN / Account No.</label>
+                                <input className="w-full p-2 border rounded text-sm" value={data.iban || ''} onChange={e => setData({...data, iban: e.target.value})} placeholder="AE..." />
+                            </div>
+                         </div>
+                    </div>
+
+                    {/* Section 3: Documents */}
+                    <div className="bg-white p-6 rounded-lg shadow-sm border">
+                        <h4 className="font-bold text-gray-800 mb-4 pb-2 border-b">Documents</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                             <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Emirates ID No.</label>
+                                    <input className="w-full p-2 border rounded text-sm" value={data.documents?.emiratesId || ''} onChange={e => setData({...data, documents: {...data.documents, emiratesId: e.target.value}})} />
+                                </div>
+                                <div className="w-1/3">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Expiry</label>
+                                    <input type="date" className="w-full p-2 border rounded text-sm" value={data.documents?.emiratesIdExpiry || ''} onChange={e => setData({...data, documents: {...data.documents, emiratesIdExpiry: e.target.value}})} />
+                                </div>
+                             </div>
+                              <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Passport No.</label>
+                                    <input className="w-full p-2 border rounded text-sm" value={data.documents?.passportNumber || ''} onChange={e => setData({...data, documents: {...data.documents, passportNumber: e.target.value}})} />
+                                </div>
+                                <div className="w-1/3">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Expiry</label>
+                                    <input type="date" className="w-full p-2 border rounded text-sm" value={data.documents?.passportExpiry || ''} onChange={e => setData({...data, documents: {...data.documents, passportExpiry: e.target.value}})} />
+                                </div>
+                             </div>
+                             <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Labour Card No.</label>
+                                    <input className="w-full p-2 border rounded text-sm" value={data.documents?.labourCardNumber || ''} onChange={e => setData({...data, documents: {...data.documents, labourCardNumber: e.target.value}})} />
+                                </div>
+                                <div className="w-1/3">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Expiry</label>
+                                    <input type="date" className="w-full p-2 border rounded text-sm" value={data.documents?.labourCardExpiry || ''} onChange={e => setData({...data, documents: {...data.documents, labourCardExpiry: e.target.value}})} />
+                                </div>
+                             </div>
+                        </div>
+                    </div>
                 </div>
-                <div className="mt-6 flex justify-end gap-2">
-                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
-                    <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded">Save Changes</button>
+
+                <div className="p-4 border-t flex justify-end gap-3 bg-white rounded-b-xl shrink-0">
+                    <button onClick={onClose} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium border">Cancel</button>
+                    <button onClick={handleSave} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-200">Save Changes</button>
                 </div>
             </div>
         </div>
@@ -1222,7 +801,7 @@ const PayslipModal = ({ employee, month, year, onClose, allAttendance, allDeduct
                     <div className="grid grid-cols-2 gap-8 mb-8">
                         <div>
                             <div className="text-xs text-gray-500 uppercase font-bold mb-1">Employee Details</div>
-                            <div class="grid grid-cols-2 gap-y-2 text-sm">
+                            <div className="grid grid-cols-2 gap-y-2 text-sm">
                                 <span className="text-gray-600">Name:</span><span className="font-bold">{employee.name}</span>
                                 <span className="text-gray-600">Code:</span><span className="font-mono">{employee.code}</span>
                                 <span className="text-gray-600">Designation:</span><span>{employee.designation}</span>
@@ -1352,6 +931,501 @@ const PayslipModal = ({ employee, month, year, onClose, allAttendance, allDeduct
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    );
+};
+
+const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
+    const [text, setText] = useState('');
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-xl">
+                <div className="flex justify-between mb-4">
+                    <h3 className="font-bold">Import Attendance CSV</h3>
+                    <button onClick={onClose}><XCircle className="w-5 h-5"/></button>
+                </div>
+                <textarea className="w-full h-64 border p-2 font-mono text-xs mb-4 bg-gray-50" value={text} onChange={e => setText(e.target.value)} placeholder={`Code,Date,Status,Overtime\n1001,2023-10-01,P,2`} />
+                <div className="flex justify-end gap-2">
+                    <button onClick={() => onImport(text)} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Import Data</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
+    const [text, setText] = useState('');
+    if (!isOpen) return null;
+    return (
+         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-xl">
+                <div className="flex justify-between mb-4">
+                    <h3 className="font-bold">Import Employees CSV</h3>
+                    <button onClick={onClose}><XCircle className="w-5 h-5"/></button>
+                </div>
+                <p className="text-xs text-gray-500 mb-2">Format: Code, Name, Designation, Department, Company, JoiningDate, Type, Status, Team, Location, Basic, Housing, Transport, Other, AirTicket, LeaveSalary, EmiratesID, EIDExpiry, Passport, PassExpiry, LabourCard, LCExpiry, VacationDate</p>
+                <textarea className="w-full h-64 border p-2 font-mono text-xs mb-4 bg-gray-50" value={text} onChange={e => setText(e.target.value)} placeholder="CSV Data..." />
+                <div className="flex justify-end gap-2">
+                    <button onClick={() => onImport(text)} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Import Employees</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const HolidayManagementModal = ({ isOpen, onClose }: any) => {
+    const [holidays, setHolidays] = useState<PublicHoliday[]>(getPublicHolidays());
+    const [newDate, setNewDate] = useState('');
+    const [newName, setNewName] = useState('');
+
+    const handleAdd = () => {
+        if (newDate && newName) {
+            const updated = savePublicHoliday({ id: Math.random().toString(), date: newDate, name: newName });
+            setHolidays(updated);
+            setNewDate(''); setNewName('');
+        }
+    };
+    const handleDelete = (id: string) => {
+        const updated = deletePublicHoliday(id);
+        setHolidays(updated);
+    };
+
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+             <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
+                <div className="flex justify-between mb-4">
+                    <h3 className="font-bold">Manage Public Holidays</h3>
+                    <button onClick={onClose}><XCircle className="w-5 h-5"/></button>
+                </div>
+                <div className="flex gap-2 mb-4">
+                    <input type="date" className="border p-2 rounded text-sm" value={newDate} onChange={e => setNewDate(e.target.value)} />
+                    <input type="text" className="border p-2 rounded text-sm flex-1" placeholder="Holiday Name" value={newName} onChange={e => setNewName(e.target.value)} />
+                    <button onClick={handleAdd} className="bg-green-600 text-white p-2 rounded"><Check className="w-4 h-4" /></button>
+                </div>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {holidays.map(h => (
+                        <div key={h.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
+                            <span className="text-sm font-bold">{h.date} <span className="font-normal text-gray-600">- {h.name}</span></span>
+                            <button onClick={() => handleDelete(h.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                    ))}
+                </div>
+             </div>
+        </div>
+    );
+};
+
+const UserManagementModal = ({ isOpen, onClose }: any) => {
+    const [users, setUsers] = useState<SystemUser[]>(getSystemUsers());
+    const [newUser, setNewUser] = useState<SystemUser>({ username: '', password: '', name: '', role: UserRole.HR, active: true, permissions: { canViewDashboard: true, canManageEmployees: false, canViewDirectory: true, canManageAttendance: true, canViewTimesheet: true, canManageLeaves: false, canViewPayroll: false, canManagePayroll: false, canViewReports: false, canManageUsers: false, canManageSettings: false }});
+    const [isEditing, setIsEditing] = useState(false);
+
+    const handleSave = () => {
+        try {
+            if (isEditing) {
+                updateSystemUser(newUser.username, newUser);
+            } else {
+                addSystemUser(newUser);
+            }
+            setUsers(getSystemUsers());
+            setNewUser({ username: '', password: '', name: '', role: UserRole.HR, active: true, permissions: { canViewDashboard: true, canManageEmployees: false, canViewDirectory: true, canManageAttendance: true, canViewTimesheet: true, canManageLeaves: false, canViewPayroll: false, canManagePayroll: false, canViewReports: false, canManageUsers: false, canManageSettings: false }});
+            setIsEditing(false);
+        } catch (e: any) {
+            alert(e.message);
+        }
+    };
+
+    if (!isOpen) return null;
+    return (
+         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+             <div className="bg-white p-6 rounded-lg w-full max-w-4xl shadow-xl h-[80vh] flex flex-col">
+                <div className="flex justify-between mb-4">
+                    <h3 className="font-bold">User Management</h3>
+                    <button onClick={onClose}><XCircle className="w-5 h-5"/></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 border-b pb-6">
+                    <input className="border p-2 rounded" placeholder="Username" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} disabled={isEditing} />
+                    <input className="border p-2 rounded" placeholder="Password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
+                    <input className="border p-2 rounded" placeholder="Full Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
+                    <select className="border p-2 rounded" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as any})}>
+                        {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    <div className="col-span-2 flex justify-end">
+                         <button onClick={handleSave} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold">{isEditing ? 'Update' : 'Create'} User</button>
+                    </div>
+                </div>
+                <div className="overflow-auto flex-1">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 font-bold text-gray-600"><tr><th className="p-2">User</th><th className="p-2">Name</th><th className="p-2">Role</th><th className="p-2">Actions</th></tr></thead>
+                        <tbody>
+                            {users.map(u => (
+                                <tr key={u.username} className="border-b">
+                                    <td className="p-2">{u.username}</td>
+                                    <td className="p-2">{u.name}</td>
+                                    <td className="p-2">{u.role}</td>
+                                    <td className="p-2 flex gap-2">
+                                        <button onClick={() => { setNewUser(u); setIsEditing(true); }} className="text-blue-600"><Edit className="w-4 h-4"/></button>
+                                        <button onClick={() => { try { deleteSystemUser(u.username); setUsers(getSystemUsers()); } catch(e:any){ alert(e.message); } }} className="text-red-600"><Trash2 className="w-4 h-4"/></button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+             </div>
+        </div>
+    );
+};
+
+const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any) => {
+    const [newComp, setNewComp] = useState('');
+    const handleAdd = () => {
+        if (newComp) {
+            const updated = addCompany(newComp);
+            onDataChange(updated);
+            setNewComp('');
+        }
+    };
+    const handleDelete = (name: string) => {
+        const updated = deleteCompany(name);
+        onDataChange(updated);
+    };
+
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-xl">
+                 <div className="flex justify-between mb-4">
+                    <h3 className="font-bold">Manage Companies</h3>
+                    <button onClick={onClose}><XCircle className="w-5 h-5"/></button>
+                </div>
+                <div className="flex gap-2 mb-4">
+                    <input className="border p-2 rounded flex-1" placeholder="New Company Name" value={newComp} onChange={e => setNewComp(e.target.value)} />
+                    <button onClick={handleAdd} className="bg-green-600 text-white px-4 rounded">Add</button>
+                </div>
+                <ul className="max-h-[300px] overflow-y-auto space-y-2">
+                    {companies.map((c: string) => (
+                         <li key={c} className="flex justify-between items-center bg-gray-50 p-2 rounded border">
+                             <span className="text-sm">{c}</span>
+                             <button onClick={() => handleDelete(c)} className="text-red-500"><Trash2 className="w-4 h-4"/></button>
+                         </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
+const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
+    const [source, setSource] = useState('');
+    const [target, setTarget] = useState('');
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
+                <h3 className="font-bold mb-4">Copy Daily Attendance</h3>
+                <div className="space-y-4 mb-4">
+                    <div><label className="block text-xs uppercase font-bold text-gray-500">Source Date</label><input type="date" className="w-full border p-2 rounded" value={source} onChange={e => setSource(e.target.value)} /></div>
+                    <div><label className="block text-xs uppercase font-bold text-gray-500">Target Date</label><input type="date" className="w-full border p-2 rounded" value={target} onChange={e => setTarget(e.target.value)} /></div>
+                </div>
+                 <div className="flex justify-end gap-2">
+                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+                    <button onClick={() => onCopy(source, target)} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Copy Records</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LeaveRequestModal = ({ employees, onClose, onSave, currentUser }: any) => {
+    const [req, setReq] = useState({ employeeId: '', startDate: '', endDate: '', type: AttendanceStatus.ANNUAL_LEAVE, reason: '' });
+    
+    const handleSubmit = () => {
+        saveLeaveRequest(req as any, currentUser.username);
+        onSave();
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
+                <div className="flex justify-between mb-4">
+                    <h3 className="font-bold">New Leave Request</h3>
+                    <button onClick={onClose}><XCircle className="w-5 h-5"/></button>
+                </div>
+                <div className="space-y-3">
+                    <select className="w-full border p-2 rounded" value={req.employeeId} onChange={e => setReq({...req, employeeId: e.target.value})}>
+                        <option value="">Select Employee</option>
+                        {employees.map((e: Employee) => <option key={e.id} value={e.id}>{e.name} ({e.code})</option>)}
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                         <input type="date" className="border p-2 rounded" value={req.startDate} onChange={e => setReq({...req, startDate: e.target.value})} />
+                         <input type="date" className="border p-2 rounded" value={req.endDate} onChange={e => setReq({...req, endDate: e.target.value})} />
+                    </div>
+                    <select className="w-full border p-2 rounded" value={req.type} onChange={e => setReq({...req, type: e.target.value as any})}>
+                        <option value={AttendanceStatus.ANNUAL_LEAVE}>Annual Leave</option>
+                        <option value={AttendanceStatus.SICK_LEAVE}>Sick Leave</option>
+                        <option value={AttendanceStatus.UNPAID_LEAVE}>Unpaid Leave</option>
+                        <option value={AttendanceStatus.EMERGENCY_LEAVE}>Emergency Leave</option>
+                    </select>
+                    <textarea className="w-full border p-2 rounded" placeholder="Reason" value={req.reason} onChange={e => setReq({...req, reason: e.target.value})} />
+                    <button onClick={handleSubmit} className="w-full bg-indigo-600 text-white py-2 rounded font-bold">Submit Request</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const RehireModal = ({ employee, onClose, onConfirm }: any) => {
+    const [date, setDate] = useState('');
+    const [reason, setReason] = useState('');
+    if (!employee) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+             <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
+                <h3 className="font-bold mb-4">Rehire: {employee.name}</h3>
+                <div className="space-y-3 mb-4">
+                    <input type="date" className="w-full border p-2 rounded" value={date} onChange={e => setDate(e.target.value)} />
+                    <textarea className="w-full border p-2 rounded" placeholder="Reason/Notes for rehiring" value={reason} onChange={e => setReason(e.target.value)} />
+                </div>
+                <div className="flex justify-end gap-2">
+                    <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
+                    <button onClick={() => onConfirm(employee.id, date, reason)} className="px-4 py-2 bg-green-600 text-white rounded font-bold">Confirm Rejoin</button>
+                </div>
+             </div>
+        </div>
+    );
+};
+
+const ExEmployeeDetailsModal = ({ employee, onClose }: any) => {
+    if (!employee) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-xl max-h-[80vh] overflow-y-auto">
+                <div className="flex justify-between mb-4">
+                    <h3 className="font-bold text-lg">Ex-Employee Record</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6"/></button>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                     <div><label className="text-xs text-gray-500 uppercase">Name</label><div className="font-bold">{employee.name}</div></div>
+                     <div><label className="text-xs text-gray-500 uppercase">Code</label><div className="font-bold">{employee.code}</div></div>
+                     <div><label className="text-xs text-gray-500 uppercase">Exit Date</label><div className="font-bold text-red-600">{employee.offboardingDetails?.exitDate}</div></div>
+                     <div><label className="text-xs text-gray-500 uppercase">Type</label><div className="font-bold">{employee.offboardingDetails?.type}</div></div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded mb-4">
+                     <label className="text-xs text-gray-500 uppercase block mb-1">Settlement</label>
+                     <div className="grid grid-cols-2 gap-2 text-sm">
+                         <div>Gratuity: {employee.offboardingDetails?.gratuity}</div>
+                         <div>Leave Encash: {employee.offboardingDetails?.leaveEncashment}</div>
+                         <div>Salary Dues: {employee.offboardingDetails?.salaryDues}</div>
+                         <div>Deductions: {employee.offboardingDetails?.deductions}</div>
+                         <div className="font-bold border-t pt-1 mt-1">Net: {employee.offboardingDetails?.netSettlement} AED</div>
+                     </div>
+                </div>
+                <div className="text-sm text-gray-600 italic">"{employee.offboardingDetails?.reason}"</div>
+            </div>
+        </div>
+    );
+};
+
+const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
+    // Simplified onboarding
+    const [emp, setEmp] = useState<Employee>({
+        id: Math.random().toString(36).substr(2, 9),
+        code: '', name: '', designation: '', department: '', joiningDate: new Date().toISOString().split('T')[0],
+        type: StaffType.WORKER, company: companies[0] || DEFAULT_COMPANIES[0], status: 'Active', team: 'Internal Team',
+        workLocation: '', leaveBalance: 30, active: true,
+        salary: { basic: 0, housing: 0, transport: 0, other: 0, airTicket: 0, leaveSalary: 0 },
+        documents: {}
+    });
+
+    const handleSave = () => {
+        if (!emp.code || !emp.name) return alert("Code and Name are required");
+        saveEmployee(emp);
+        onComplete();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-6 rounded-lg w-full max-w-4xl shadow-xl h-[90vh] overflow-y-auto">
+                 <div className="flex justify-between mb-6">
+                    <h3 className="font-bold text-xl">Onboard New Employee</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6"/></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 className="font-bold mb-2 text-indigo-600">Basic Info</h4>
+                        <div className="space-y-3">
+                            <input className="w-full border p-2 rounded" placeholder="Employee Code *" value={emp.code} onChange={e => setEmp({...emp, code: e.target.value})} />
+                            <input className="w-full border p-2 rounded" placeholder="Full Name *" value={emp.name} onChange={e => setEmp({...emp, name: e.target.value})} />
+                            <input className="w-full border p-2 rounded" placeholder="Designation" value={emp.designation} onChange={e => setEmp({...emp, designation: e.target.value})} />
+                            <select className="w-full border p-2 rounded" value={emp.company} onChange={e => setEmp({...emp, company: e.target.value})}>
+                                {companies.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input type="date" className="border p-2 rounded w-full" value={emp.joiningDate} onChange={e => setEmp({...emp, joiningDate: e.target.value})} />
+                                <select className="border p-2 rounded w-full" value={emp.team} onChange={e => setEmp({...emp, team: e.target.value as any})}>
+                                    <option value="Internal Team">Internal Team</option>
+                                    <option value="External Team">External Team</option>
+                                    <option value="Office Staff">Office Staff</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                     <div>
+                        <h4 className="font-bold mb-2 text-green-600">Salary & Finance</h4>
+                        <div className="space-y-3">
+                             <div className="grid grid-cols-2 gap-2">
+                                <input type="number" className="border p-2 rounded" placeholder="Basic" value={emp.salary.basic || ''} onChange={e => setEmp({...emp, salary: {...emp.salary, basic: Number(e.target.value)}})} />
+                                <input type="number" className="border p-2 rounded" placeholder="Housing" value={emp.salary.housing || ''} onChange={e => setEmp({...emp, salary: {...emp.salary, housing: Number(e.target.value)}})} />
+                                <input type="number" className="border p-2 rounded" placeholder="Transport" value={emp.salary.transport || ''} onChange={e => setEmp({...emp, salary: {...emp.salary, transport: Number(e.target.value)}})} />
+                                <input type="number" className="border p-2 rounded" placeholder="Other" value={emp.salary.other || ''} onChange={e => setEmp({...emp, salary: {...emp.salary, other: Number(e.target.value)}})} />
+                             </div>
+                             <input className="w-full border p-2 rounded" placeholder="Bank Name" value={emp.bankName || ''} onChange={e => setEmp({...emp, bankName: e.target.value})} />
+                             <input className="w-full border p-2 rounded" placeholder="IBAN" value={emp.iban || ''} onChange={e => setEmp({...emp, iban: e.target.value})} />
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-8 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-5 py-2 border rounded">Cancel</button>
+                    <button onClick={handleSave} className="px-5 py-2 bg-indigo-600 text-white rounded font-bold shadow-lg">Complete Onboarding</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const DeductionsView = ({ deductions, employees, onRefresh }: any) => {
+    const [newDed, setNewDed] = useState({ employeeId: '', date: new Date().toISOString().split('T')[0], type: 'Salary Advance', amount: 0, note: '' });
+
+    const handleSave = () => {
+        if (newDed.employeeId && newDed.amount) {
+            saveDeduction(newDed as any);
+            setNewDed({ ...newDed, amount: 0, note: '' });
+            onRefresh();
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-xl font-bold">Deductions & Penalties</h2>
+            <div className="bg-white p-6 rounded-xl shadow-sm border">
+                <h3 className="font-bold mb-4">Add New Deduction</h3>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                    <select className="border p-2 rounded" value={newDed.employeeId} onChange={e => setNewDed({...newDed, employeeId: e.target.value})}>
+                        <option value="">Select Employee</option>
+                        {employees.map((e: Employee) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                    <input type="date" className="border p-2 rounded" value={newDed.date} onChange={e => setNewDed({...newDed, date: e.target.value})} />
+                    <select className="border p-2 rounded" value={newDed.type} onChange={e => setNewDed({...newDed, type: e.target.value})}>
+                        <option>Salary Advance</option><option>Loan Amount</option><option>Damage Material/Asset</option><option>Fine Amount</option><option>Penalty</option><option>Other</option>
+                    </select>
+                    <input type="number" className="border p-2 rounded" placeholder="Amount" value={newDed.amount || ''} onChange={e => setNewDed({...newDed, amount: Number(e.target.value)})} />
+                    <button onClick={handleSave} className="bg-red-600 text-white p-2 rounded font-bold">Add Deduction</button>
+                </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-500 uppercase font-bold text-xs"><tr><th className="p-4">Date</th><th className="p-4">Employee</th><th className="p-4">Type</th><th className="p-4">Amount</th><th className="p-4">Action</th></tr></thead>
+                    <tbody>
+                        {deductions.map((d: any) => {
+                            const emp = employees.find((e: Employee) => e.id === d.employeeId);
+                            return (
+                                <tr key={d.id} className="border-b">
+                                    <td className="p-4">{d.date}</td>
+                                    <td className="p-4 font-bold">{emp?.name || 'Unknown'}</td>
+                                    <td className="p-4">{d.type}</td>
+                                    <td className="p-4 font-bold text-red-600">{d.amount}</td>
+                                    <td className="p-4"><button onClick={() => { deleteDeduction(d.id); onRefresh(); }} className="text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const ReportsView = ({ employees, attendance }: any) => {
+    // Simple placeholder for reports
+    return (
+        <div className="space-y-6">
+            <h2 className="text-xl font-bold">Reports & Analytics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                    <h3 className="font-bold mb-4">Staff Distribution</h3>
+                    <div className="space-y-2">
+                        <div className="flex justify-between"><span>Internal Team</span><span className="font-bold">{employees.filter((e: Employee) => e.active && e.team === 'Internal Team').length}</span></div>
+                        <div className="flex justify-between"><span>External Team</span><span className="font-bold">{employees.filter((e: Employee) => e.active && e.team === 'External Team').length}</span></div>
+                        <div className="flex justify-between"><span>Office Staff</span><span className="font-bold">{employees.filter((e: Employee) => e.active && e.team === 'Office Staff').length}</span></div>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                     <h3 className="font-bold mb-4">Attendance Stats (This Month)</h3>
+                     <div className="space-y-2">
+                        <div className="flex justify-between"><span>Present Days</span><span className="font-bold text-green-600">{attendance.filter((r: AttendanceRecord) => r.status === AttendanceStatus.PRESENT).length}</span></div>
+                        <div className="flex justify-between"><span>Absences</span><span className="font-bold text-red-600">{attendance.filter((r: AttendanceRecord) => r.status === AttendanceStatus.ABSENT).length}</span></div>
+                        <div className="flex justify-between"><span>Overtime Hours</span><span className="font-bold text-blue-600">{attendance.reduce((acc: number, r: AttendanceRecord) => acc + (r.overtimeHours || 0), 0)}</span></div>
+                     </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AboutView = ({ currentUser }: any) => {
+    const [about, setAbout] = useState(getAboutData());
+    const [isEditing, setIsEditing] = useState(false);
+    
+    const handleSave = () => {
+        saveAboutData(about);
+        setIsEditing(false);
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-6">
+            <div className="flex justify-between items-center">
+                 <h2 className="text-2xl font-bold">About System Owner</h2>
+                 {currentUser.role === UserRole.CREATOR && !isEditing && <button onClick={() => setIsEditing(true)} className="text-blue-600"><Edit className="w-5 h-5"/></button>}
+            </div>
+            
+            <div className="bg-white p-8 rounded-xl shadow-lg border relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-indigo-600 to-purple-600"></div>
+                <div className="relative pt-16 flex flex-col md:flex-row gap-8 items-start">
+                     <div className="w-32 h-32 bg-white rounded-full p-2 shadow-xl mx-auto md:mx-0">
+                         {about.profileImage ? <img src={about.profileImage} className="w-full h-full rounded-full object-cover" /> : <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center"><User className="w-12 h-12 text-gray-400" /></div>}
+                     </div>
+                     <div className="flex-1 text-center md:text-left">
+                         {isEditing ? (
+                             <div className="space-y-3">
+                                 <input className="border p-2 rounded w-full font-bold" value={about.name} onChange={e => setAbout({...about, name: e.target.value})} />
+                                 <input className="border p-2 rounded w-full" value={about.title} onChange={e => setAbout({...about, title: e.target.value})} />
+                                 <textarea className="border p-2 rounded w-full h-24" value={about.bio} onChange={e => setAbout({...about, bio: e.target.value})} />
+                                 <input className="border p-2 rounded w-full" value={about.email} onChange={e => setAbout({...about, email: e.target.value})} />
+                                 <input className="border p-2 rounded w-full" value={about.contactInfo} onChange={e => setAbout({...about, contactInfo: e.target.value})} />
+                                 <button onClick={handleSave} className="bg-indigo-600 text-white px-4 py-2 rounded">Save Profile</button>
+                             </div>
+                         ) : (
+                             <>
+                                <h1 className="text-3xl font-bold text-gray-900 mb-1">{about.name}</h1>
+                                <p className="text-indigo-600 font-medium mb-4">{about.title}</p>
+                                <p className="text-gray-600 mb-6 leading-relaxed">{about.bio}</p>
+                                <div className="flex flex-col md:flex-row gap-4 text-sm text-gray-500">
+                                    <div className="flex items-center gap-2 justify-center md:justify-start"><span className="p-2 bg-gray-100 rounded-full"><Users className="w-4 h-4"/></span> {about.email}</div>
+                                    <div className="flex items-center gap-2 justify-center md:justify-start"><span className="p-2 bg-gray-100 rounded-full"><Briefcase className="w-4 h-4"/></span> {about.contactInfo}</div>
+                                </div>
+                             </>
+                         )}
+                     </div>
+                </div>
+            </div>
+            
+            <div className="text-center text-gray-400 text-sm mt-12">
+                &copy; 2025 ShiftSync Workforce Management System. All rights reserved.
             </div>
         </div>
     );
@@ -2108,4 +2182,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-    
