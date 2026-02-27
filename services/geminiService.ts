@@ -1,8 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Employee, ShiftType, StaffType } from "../types";
+import { Employee, StaffType } from "../types";
 
-// Initialize Gemini API
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
+const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 const MODEL_NAME = "gemini-2.5-flash";
 
@@ -26,6 +26,10 @@ export const processNaturalLanguageCommand = async (
     - actionType can be: 'check-in', 'check-out', 'mark-absent'.
     - Format time as HH:mm 24-hour format if possible, or null if current time is implied.
   `;
+
+  if (!ai) {
+    return parseCommandLocally(command, employees);
+  }
 
   try {
     const response = await ai.models.generateContent({
@@ -59,13 +63,50 @@ export const processNaturalLanguageCommand = async (
     return JSON.parse(responseText);
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return null;
+    return parseCommandLocally(command, employees);
   }
+};
+
+const parseCommandLocally = (
+  command: string,
+  employees: Employee[]
+): { actions: any[], summary: string } | null => {
+  const normalized = command.toLowerCase().trim();
+
+  const actionType = normalized.includes('absent')
+    ? 'mark-absent'
+    : normalized.includes('check out') || normalized.includes('checkout')
+      ? 'check-out'
+      : normalized.includes('check in') || normalized.includes('checkin')
+        ? 'check-in'
+        : null;
+
+  if (!actionType) return null;
+
+  const matchedEmployees = employees.filter(e => normalized.includes(e.name.toLowerCase()));
+  if (matchedEmployees.length === 0) return null;
+
+  const timeMatch = normalized.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+  const time = timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : null;
+
+  return {
+    actions: matchedEmployees.map(e => ({
+      employeeName: e.name,
+      actionType,
+      time,
+      notes: 'Parsed locally'
+    })),
+    summary: `Updated ${matchedEmployees.length} attendance record${matchedEmployees.length > 1 ? 's' : ''}.`
+  };
 };
 
 export const suggestRotationalSchedule = async (
   employees: Employee[]
 ): Promise<string> => {
+  if (!ai) {
+    return "Gemini API key is missing. Set VITE_GEMINI_API_KEY to enable AI schedule suggestions.";
+  }
+
   const workers = employees.filter(e => e.type === StaffType.WORKER);
   
   const prompt = `
