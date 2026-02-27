@@ -2,6 +2,14 @@
 import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole, AboutData, DeductionRecord } from "../types";
 import { MOCK_EMPLOYEES, STORAGE_KEYS, DEFAULT_COMPANIES, DEFAULT_ADMIN, CREATOR_USER, DEFAULT_ABOUT_DATA } from "../constants";
 
+const LEGACY_COMPANY_NAME_MAP: Record<string, string> = {
+  'PERFECT STAR FACILITIES MANAGEMENT SERVICES LLC - SPC': 'Al Reem Cosmetics & Beauty Equipments Trading',
+  'PERFECT STAR CLEANING SERVICES LLC - SPC': 'Al Reem Henna And Beauty Saloon. Branch',
+  'PERFECT STAR GROUP': 'Al Reem Henna & Beauty Saloon',
+  'CAPTON FACILITY MANAGEMENT LLC - SPC': 'Al Reem Henna And Beauty Saloon Branch 2',
+  'GLOBAL PERFECT CONTRACTING & GENERAL MAINTENANCE LLC - SPC': 'Salina Henna & Beauty Saloon'
+};
+
 // Simulate database initialization
 const initStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.EMPLOYEES)) {
@@ -24,6 +32,29 @@ const initStorage = () => {
   }
   if (!localStorage.getItem(STORAGE_KEYS.DEDUCTIONS)) {
       localStorage.setItem(STORAGE_KEYS.DEDUCTIONS, JSON.stringify([]));
+  }
+
+  // Company name migration for existing browser data
+  const companyData = localStorage.getItem(STORAGE_KEYS.COMPANIES);
+  if (companyData) {
+      const currentCompanies: string[] = JSON.parse(companyData);
+      const migratedCompanies = currentCompanies.map(c => LEGACY_COMPANY_NAME_MAP[c] || c);
+      const uniqueCompanies = Array.from(new Set([...migratedCompanies, ...DEFAULT_COMPANIES]));
+      if (JSON.stringify(uniqueCompanies) !== JSON.stringify(currentCompanies)) {
+          localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(uniqueCompanies));
+      }
+  }
+
+  const employeesData = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+  if (employeesData) {
+      const currentEmployees: Employee[] = JSON.parse(employeesData);
+      const migratedEmployees = currentEmployees.map(emp => ({
+          ...emp,
+          company: LEGACY_COMPANY_NAME_MAP[emp.company] || emp.company
+      }));
+      if (JSON.stringify(migratedEmployees) !== JSON.stringify(currentEmployees)) {
+          localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(migratedEmployees));
+      }
   }
   
   // Initialize users logic
