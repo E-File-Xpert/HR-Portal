@@ -17,3 +17,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/133rpF2HZKYxSbfPtijCwWy
    `npm install`
 2. Run the app:
    `npm run dev`
+
+
+## Notes
+
+- AI Smart Log/Gemini features were removed intentionally.
+- `components/SmartCommand.tsx` and `services/geminiService.ts` are kept as compatibility shims to avoid merge/build failures in branches that still import them.
