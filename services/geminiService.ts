@@ -1,3 +1,4 @@
+import { Employee } from "../types";
 import { GoogleGenAI, Type } from "@google/genai";
 import { Employee, StaffType } from "../types";
 
@@ -6,7 +7,19 @@ const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 const MODEL_NAME = "gemini-2.5-flash";
 
+/**
+ * Gemini integration has been intentionally removed.
+ * This module is kept as a compatibility shim so branches that still
+ * reference this file can merge cleanly without reintroducing AI behavior.
+ */
 export const processNaturalLanguageCommand = async (
+  _command: string,
+  _employees: Employee[]
+): Promise<{ actions: any[]; summary: string } | null> => {
+  return {
+    actions: [],
+    summary: "AI Smart Log has been removed from this application."
+  };
   command: string,
   employees: Employee[]
 ): Promise<{ actions: any[], summary: string } | null> => {
@@ -101,8 +114,9 @@ const parseCommandLocally = (
 };
 
 export const suggestRotationalSchedule = async (
-  employees: Employee[]
+  _employees: Employee[]
 ): Promise<string> => {
+  return "AI schedule suggestions are not available because Gemini integration was removed.";
   if (!ai) {
     return "Gemini API key is missing. Set VITE_GEMINI_API_KEY to enable AI schedule suggestions.";
   }
