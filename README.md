@@ -15,5 +15,5 @@ View your app in AI Studio: https://ai.studio/apps/drive/133rpF2HZKYxSbfPtijCwWy
 
 1. Install dependencies:
    `npm install`
-3. Run the app:
+2. Run the app:
    `npm run dev`
