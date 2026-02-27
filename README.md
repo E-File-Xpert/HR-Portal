@@ -23,3 +23,20 @@ View your app in AI Studio: https://ai.studio/apps/drive/133rpF2HZKYxSbfPtijCwWy
 
 - AI Smart Log/Gemini features were removed intentionally.
 - `components/SmartCommand.tsx` and `services/geminiService.ts` are kept as compatibility shims to avoid merge/build failures in branches that still import them.
+
+
+## Conflict Resolution (if GitHub shows conflicts)
+
+If PR conflicts appear for the files below, keep the current branch versions from this repo state:
+
+- `README.md`
+- `components/SmartCommand.tsx`
+- `services/geminiService.ts`
+
+CLI commands:
+
+```bash
+git checkout --ours README.md components/SmartCommand.tsx services/geminiService.ts
+git add README.md components/SmartCommand.tsx services/geminiService.ts
+git commit -m "Resolve conflicts by keeping compatibility shim files"
+```
