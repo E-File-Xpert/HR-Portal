@@ -27,6 +27,7 @@ import {
   getDeductions, saveDeduction, deleteDeduction
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS, DEFAULT_COMPANIES } from './constants';
+import SmartCommand from './components/SmartCommand';
 
 // --- Constants for Grid ---
 const LEGEND: any = {
@@ -2080,6 +2081,7 @@ const App: React.FC = () => {
                       )}
                   </div>
                   {/* ... [Dashboard Stats Cards remain the same] ... */}
+                  <SmartCommand onUpdate={handleRefresh} />
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                       <div onClick={() => handleDashboardFilter('active')} className="bg-white p-6 rounded-xl shadow-sm border cursor-pointer hover:shadow-md transition-shadow">
                           <h3 className="text-gray-500 text-sm font-medium">Total Active Staff</h3>
