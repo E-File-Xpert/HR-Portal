@@ -62,12 +62,12 @@ export const CREATOR_USER: SystemUser = {
 };
 
 export const DEFAULT_ABOUT_DATA: AboutData = {
-    name: 'Mohamed Abdul Kader',
-    title: 'Full Stack Developer & System Architect',
-    bio: 'Passionate developer dedicated to building efficient, user-friendly workforce management solutions. Expert in React, modern web technologies, and system automation.',
+    name: 'ShiftSync Workforce Management',
+    title: 'HR Portal',
+    bio: 'Centralized platform for attendance, payroll, leave, reports, and employee operations for all authorized users.',
     profileImage: '', // Will default to placeholder in UI if empty
-    email: 'abdulkaderp3010@gmail.com',
-    contactInfo: 'Contact for support and custom development.'
+    email: 'support@shiftsync.local',
+    contactInfo: 'Contact your system administrator for account and access support.'
 };
 
 // Data extracted from PDF Pages 1-4
