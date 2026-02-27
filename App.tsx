@@ -1651,6 +1651,10 @@ const AboutView = ({ currentUser }: any) => {
     
     // Updated Logic: Only Creator or Admin can edit.
     const canEdit = currentUser.role === UserRole.CREATOR || currentUser.role === UserRole.ADMIN;
+    const isCreator = currentUser.role === UserRole.CREATOR;
+    const displayName = isCreator ? about.name : currentUser.name;
+    const displayTitle = isCreator ? about.title : `${currentUser.role} Account`;
+    const displayEmail = isCreator ? about.email : currentUser.username;
 
     const handleSave = () => {
         saveAboutData(about);
@@ -1660,7 +1664,7 @@ const AboutView = ({ currentUser }: any) => {
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex justify-between items-center">
-                 <h2 className="text-2xl font-bold">About System Owner</h2>
+                 <h2 className="text-2xl font-bold">About Account</h2>
                  {canEdit && !isEditing && <button onClick={() => setIsEditing(true)} className="text-blue-600"><Edit className="w-5 h-5"/></button>}
             </div>
             
@@ -1682,11 +1686,11 @@ const AboutView = ({ currentUser }: any) => {
                              </div>
                          ) : (
                              <>
-                                <h1 className="text-3xl font-bold text-gray-900 mb-1">{about.name}</h1>
-                                <p className="text-indigo-600 font-medium mb-4">{about.title}</p>
+                                <h1 className="text-3xl font-bold text-gray-900 mb-1">{displayName}</h1>
+                                <p className="text-indigo-600 font-medium mb-4">{displayTitle}</p>
                                 <p className="text-gray-600 mb-6 leading-relaxed">{about.bio}</p>
                                 <div className="flex flex-col md:flex-row gap-4 text-sm text-gray-500">
-                                    <div className="flex items-center gap-2 justify-center md:justify-start"><span className="p-2 bg-gray-100 rounded-full"><Users className="w-4 h-4"/></span> {about.email}</div>
+                                    <div className="flex items-center gap-2 justify-center md:justify-start"><span className="p-2 bg-gray-100 rounded-full"><Users className="w-4 h-4"/></span> {displayEmail}</div>
                                     <div className="flex items-center gap-2 justify-center md:justify-start"><span className="p-2 bg-gray-100 rounded-full"><Briefcase className="w-4 h-4"/></span> {about.contactInfo}</div>
                                 </div>
                              </>
