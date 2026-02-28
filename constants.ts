@@ -79,6 +79,7 @@ export const STORAGE_KEYS = {
   LEAVE_REQUESTS: 'shiftsync_leave_requests_v1',
   PUBLIC_HOLIDAYS: 'shiftsync_public_holidays_v1',
   COMPANIES: 'shiftsync_companies_v1',
+  COMPANY_PROFILES: 'shiftsync_company_profiles_v1',
   USERS: 'shiftsync_users_v1',
   ABOUT: 'shiftsync_about_v1',
   DEDUCTIONS: 'shiftsync_deductions_v1'

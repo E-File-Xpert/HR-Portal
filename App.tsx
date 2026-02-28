@@ -13,7 +13,7 @@ import * as XLSX from 'xlsx';
 import { 
   Employee, AttendanceRecord, AttendanceStatus, StaffType, 
   LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, 
-  SystemUser, UserRole, AboutData, SalaryStructure, DeductionRecord
+  SystemUser, UserRole, AboutData, SalaryStructure, DeductionRecord, CompanyProfile
 } from './types';
 import { 
   getEmployees, saveEmployee, offboardEmployee, rehireEmployee,
@@ -24,7 +24,8 @@ import {
   getSystemUsers, addSystemUser, updateSystemUser, deleteSystemUser,
   getAboutData, saveAboutData,
   importAttendanceFromCSV, importEmployeesFromCSV,
-  getDeductions, saveDeduction, deleteDeduction
+  getDeductions, saveDeduction, deleteDeduction,
+  getCompanyProfiles, saveCompanyProfile, updateLeaveRequest
 } from './services/storageService';
 import { PUBLIC_HOLIDAYS, DEFAULT_COMPANIES } from './constants';
 import SmartCommand from './components/SmartCommand';
@@ -58,6 +59,31 @@ const formatDateLocal = (date: Date) => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+};
+
+const parseUiDateToIso = (value: string) => {
+    const clean = value.trim();
+    const m = clean.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    return clean;
+};
+
+const formatIsoToUiDate = (iso: string) => {
+    if (!iso) return '';
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return iso;
+    return `${m[3]}/${m[2]}/${m[1]}`;
+};
+
+const getDatesInRange = (start: string, end: string) => {
+    const result: string[] = [];
+    const from = new Date(start);
+    const to = new Date(end);
+    if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return result;
+    for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+        result.push(formatDateLocal(d));
+    }
+    return result;
 };
 
 const calculateAdditionalEarnings = (records: AttendanceRecord[], team: string) => {
@@ -763,30 +789,52 @@ const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
     );
 };
 
-const PayslipModal = ({ employee, month, year, onClose, allAttendance, allDeductions }: any) => {
+const PayslipModal = ({ employee, month, year, onClose, allAttendance, allDeductions, companyProfiles }: any) => {
     const payrollData = calculatePayroll(employee, allAttendance, allDeductions, month, year);
     const monthName = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
-    const { 
-        basic, housing, transport, airTicket, leaveSalary, other, 
+    const companyProfile = companyProfiles?.find((c: CompanyProfile) => c.name === employee.company) || { name: employee.company };
+    const {
+        basic, housing, transport, airTicket, leaveSalary, other,
         gross, totalAdditions, totalDeductions, netSalary,
         overtimePay, holidayPay, weekOffPay, totalOTHours,
         unpaidDaysCount, unpaidDeductionAmount, variableDeductions
     } = payrollData;
 
+    const handlePrintPayslip = () => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return alert('Please allow popups to print payslip.');
+        const content = document.getElementById('payslip-content')?.innerHTML || '';
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Payslip - ${employee.name} - ${monthName}</title>
+                    <script src="https://cdn.tailwindcss.com"></script>
+                </head>
+                <body class="bg-white p-6">
+                    <div class="max-w-3xl mx-auto">${content}</div>
+                    <script>window.onload = () => window.print();</script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:p-0 print:static print:bg-white">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="bg-gray-50 p-4 flex justify-between items-center border-b print:hidden">
+                <div className="bg-gray-50 p-4 flex justify-between items-center border-b">
                     <h3 className="font-bold text-lg">Payslip Preview</h3>
                     <div className="flex gap-2">
-                        <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 text-white rounded text-sm"><Printer className="w-4 h-4"/> Print</button>
+                        <button onClick={handlePrintPayslip} className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 text-white rounded text-sm"><Printer className="w-4 h-4"/> Print Payslip Only</button>
                         <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-500 hover:text-gray-700" /></button>
                     </div>
                 </div>
                 <div className="p-8 overflow-y-auto bg-white" id="payslip-content">
                     <div className="text-center border-b pb-6 mb-6">
                         <h1 className="text-2xl font-bold uppercase text-gray-900">{employee.company}</h1>
-                        <p className="text-sm text-gray-500">Payslip for the month of {monthName}</p>
+                        {companyProfile.address && <p className="text-sm text-gray-600">{companyProfile.address}</p>}
+                        {companyProfile.email && <p className="text-sm text-gray-500">{companyProfile.email}</p>}
+                        <p className="text-sm text-gray-500 mt-1">Payslip for the month of {monthName}</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-8 mb-8">
@@ -821,45 +869,17 @@ const PayslipModal = ({ employee, month, year, onClose, allAttendance, allDeduct
                                 <td className="p-2 border">Basic Salary</td><td className="p-2 border text-right">{basic.toLocaleString()}</td>
                                 <td className="p-2 border">Unpaid Days ({unpaidDaysCount})</td><td className="p-2 border text-right text-red-600">{unpaidDeductionAmount > 0 ? unpaidDeductionAmount.toLocaleString(undefined, {maximumFractionDigits: 2}) : '0.00'}</td>
                             </tr>
-                            <tr>
-                                <td className="p-2 border">Housing Allowance</td><td className="p-2 border text-right">{housing.toLocaleString()}</td>
-                                <td className="p-2 border"></td><td className="p-2 border"></td>
-                            </tr>
-                            <tr>
-                                <td className="p-2 border">Transport Allowance</td><td className="p-2 border text-right">{transport.toLocaleString()}</td>
-                                <td className="p-2 border"></td><td className="p-2 border"></td>
-                            </tr>
-                            <tr>
-                                <td className="p-2 border">Air Ticket</td><td className="p-2 border text-right">{airTicket.toLocaleString()}</td>
-                                <td className="p-2 border"></td><td className="p-2 border"></td>
-                            </tr>
-                            <tr>
-                                <td className="p-2 border">Leave Salary</td><td className="p-2 border text-right">{leaveSalary.toLocaleString()}</td>
-                                <td className="p-2 border"></td><td className="p-2 border"></td>
-                            </tr>
-                             <tr>
-                                <td className="p-2 border">Other Allowances</td><td className="p-2 border text-right">{other.toLocaleString()}</td>
-                                <td className="p-2 border"></td><td className="p-2 border"></td>
-                            </tr>
-                            <tr>
-                                <td className="p-2 border text-blue-600">Overtime ({totalOTHours})</td><td className="p-2 border text-right text-blue-600">{overtimePay.toLocaleString()}</td>
-                                <td className="p-2 border"></td><td className="p-2 border"></td>
-                            </tr>
+                            <tr><td className="p-2 border">Housing Allowance</td><td className="p-2 border text-right">{housing.toLocaleString()}</td><td className="p-2 border"></td><td className="p-2 border"></td></tr>
+                            <tr><td className="p-2 border">Transport Allowance</td><td className="p-2 border text-right">{transport.toLocaleString()}</td><td className="p-2 border"></td><td className="p-2 border"></td></tr>
+                            <tr><td className="p-2 border">Air Ticket</td><td className="p-2 border text-right">{airTicket.toLocaleString()}</td><td className="p-2 border"></td><td className="p-2 border"></td></tr>
+                            <tr><td className="p-2 border">Leave Salary</td><td className="p-2 border text-right">{leaveSalary.toLocaleString()}</td><td className="p-2 border"></td><td className="p-2 border"></td></tr>
+                            <tr><td className="p-2 border">Other Allowances</td><td className="p-2 border text-right">{other.toLocaleString()}</td><td className="p-2 border"></td><td className="p-2 border"></td></tr>
+                            <tr><td className="p-2 border text-blue-600">Overtime ({totalOTHours})</td><td className="p-2 border text-right text-blue-600">{overtimePay.toLocaleString()}</td><td className="p-2 border"></td><td className="p-2 border"></td></tr>
                             {holidayPay > 0 && <tr><td className="p-2 border text-blue-600">Holiday Pay</td><td className="p-2 border text-right text-blue-600">{holidayPay.toLocaleString()}</td><td className="p-2 border"></td><td className="p-2 border"></td></tr>}
                             {weekOffPay > 0 && <tr><td className="p-2 border text-blue-600">WeekOff Pay</td><td className="p-2 border text-right text-blue-600">{weekOffPay.toLocaleString()}</td><td className="p-2 border"></td><td className="p-2 border"></td></tr>}
                             {variableDeductions.map((d: any) => (
                                 <tr key={d.id}><td className="p-2 border"></td><td className="p-2 border"></td><td className="p-2 border text-red-600">{d.type}{d.note ? ` (${d.note})` : ''}</td><td className="p-2 border text-right text-red-600">{d.amount.toLocaleString()}</td></tr>
                             ))}
-                             {/* Disclaimer Note */}
-                            {(unpaidDaysCount > 0) && (
-                                <tr>
-                                    <td className="p-2 border" colSpan={4}>
-                                        <p className="text-xs text-gray-500 italic">
-                                            * Note: Annual Leave and Emergency Leave are treated as unpaid leave as per company policy.
-                                        </p>
-                                    </td>
-                                </tr>
-                            )}
                             <tr className="font-bold bg-gray-50">
                                 <td className="p-2 border">Total Earnings</td><td className="p-2 border text-right">{(gross + totalAdditions).toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
                                 <td className="p-2 border">Total Deductions</td><td className="p-2 border text-right">{totalDeductions.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
@@ -867,7 +887,14 @@ const PayslipModal = ({ employee, month, year, onClose, allAttendance, allDeduct
                         </tbody>
                     </table>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-between items-end">
+                        <div>
+                            {companyProfile.stampImage ? (
+                                <img src={companyProfile.stampImage} alt="Company Stamp" className="h-24 object-contain" />
+                            ) : (
+                                <div className="text-xs text-gray-400 border border-dashed rounded p-3">No company stamp uploaded</div>
+                            )}
+                        </div>
                         <div className="bg-gray-900 text-white p-4 rounded-lg min-w-[200px]">
                             <div className="text-xs text-gray-400 uppercase mb-1">Net Pay</div>
                             <div className="text-xl font-bold">AED {netSalary.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
@@ -902,15 +929,34 @@ const BulkImportModal = ({ isOpen, onClose, onImport }: any) => {
 
 const EmployeeImportModal = ({ isOpen, onClose, onImport }: any) => {
     const [text, setText] = useState('');
+
+    const handleDownloadSample = () => {
+        const headers = ['Code', 'Name', 'Designation', 'Department', 'Company', 'JoiningDate', 'Type', 'Status', 'Team', 'Location', 'Basic', 'Housing', 'Transport', 'Other', 'AirTicket', 'LeaveSalary', 'EmiratesID', 'EIDExpiry', 'Passport', 'PassExpiry', 'LabourCard', 'LCExpiry', 'VacationDate'];
+        const sampleRows = [
+            ['10001', 'John Doe', 'Helper', 'Cleaning', 'Al Reem Cosmetics & Beauty Equipments Trading', '2026-02-01', 'Worker', 'Active', 'Internal Team', 'Abu Dhabi', 1200, 200, 100, 50, 0, 0, '784-XXXX', '2027-02-01', 'A12345', '2030-02-01', 'LC1001', '2027-05-01', '2026-08-01'],
+            ['10002', 'Mary Ann', 'HR Assistant', 'HR', 'Salina Henna & Beauty Saloon', '2026-02-10', 'Staff', 'Active', 'Office Staff', 'Head Office', 3000, 500, 300, 100, 0, 0, '784-YYYY', '2027-03-15', 'B67890', '2031-03-15', 'LC1002', '2027-06-15', '2026-09-15']
+        ];
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+        XLSX.writeFile(wb, 'employee_import_sample.xlsx');
+    };
+
     if (!isOpen) return null;
     return (
          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-xl">
-                <div className="flex justify-between mb-4">
+                <div className="flex justify-between mb-4 items-center">
                     <h3 className="font-bold">Import Employees CSV</h3>
                     <button onClick={onClose}><XCircle className="w-5 h-5"/></button>
                 </div>
                 <p className="text-xs text-gray-500 mb-2">Format: Code, Name, Designation, Department, Company, JoiningDate, Type, Status, Team, Location, Basic, Housing, Transport, Other, AirTicket, LeaveSalary, EmiratesID, EIDExpiry, Passport, PassExpiry, LabourCard, LCExpiry, VacationDate</p>
+                <div className="mb-3">
+                    <button onClick={handleDownloadSample} className="px-3 py-1.5 border rounded text-sm text-indigo-700 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 flex items-center gap-2">
+                        <FileDown className="w-4 h-4" /> Download Sample Excel
+                    </button>
+                </div>
                 <textarea className="w-full h-64 border p-2 font-mono text-xs mb-4 bg-gray-50" value={text} onChange={e => setText(e.target.value)} placeholder="CSV Data..." />
                 <div className="flex justify-end gap-2">
                     <button onClick={() => onImport(text)} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Import Employees</button>
@@ -1107,24 +1153,39 @@ const ProfileModal = ({ isOpen, onClose, currentUser, onUpdate }: any) => {
     );
 };
 
-const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any) => {
+const ManageCompaniesModal = ({ isOpen, onClose, companies, profiles, onDataChange, onProfileChange }: any) => {
     const [newComp, setNewComp] = useState('');
+
     const handleAdd = () => {
         if (newComp) {
             const updated = addCompany(newComp);
             onDataChange(updated);
+            onProfileChange(getCompanyProfiles());
             setNewComp('');
         }
     };
     const handleDelete = (name: string) => {
         const updated = deleteCompany(name);
         onDataChange(updated);
+        onProfileChange(getCompanyProfiles());
+    };
+
+    const updateProfileField = (name: string, field: keyof CompanyProfile, value: string) => {
+        const existing = profiles.find((p: CompanyProfile) => p.name === name) || { name };
+        const updated = saveCompanyProfile({ ...existing, [field]: value });
+        onProfileChange(updated);
+    };
+
+    const handleStampUpload = async (name: string, file: File | null) => {
+        if (!file) return;
+        const data = await readFileAsBase64(file);
+        updateProfileField(name, 'stampImage', data);
     };
 
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white p-6 rounded-lg w-full max-w-lg shadow-xl">
+            <div className="bg-white p-6 rounded-lg w-full max-w-3xl shadow-xl max-h-[90vh] overflow-y-auto">
                  <div className="flex justify-between mb-4">
                     <h3 className="font-bold">Manage Companies</h3>
                     <button onClick={onClose}><XCircle className="w-5 h-5"/></button>
@@ -1133,13 +1194,26 @@ const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any)
                     <input className="border p-2 rounded flex-1" placeholder="New Company Name" value={newComp} onChange={e => setNewComp(e.target.value)} />
                     <button onClick={handleAdd} className="bg-green-600 text-white px-4 rounded">Add</button>
                 </div>
-                <ul className="max-h-[300px] overflow-y-auto space-y-2">
-                    {companies.map((c: string) => (
-                         <li key={c} className="flex justify-between items-center bg-gray-50 p-2 rounded border">
-                             <span className="text-sm">{c}</span>
-                             <button onClick={() => handleDelete(c)} className="text-red-500"><Trash2 className="w-4 h-4"/></button>
+                <ul className="space-y-3">
+                    {companies.map((c: string) => {
+                        const profile = profiles.find((p: CompanyProfile) => p.name === c) || { name: c };
+                        return (
+                         <li key={c} className="bg-gray-50 p-3 rounded border space-y-2">
+                             <div className="flex justify-between items-center">
+                                <span className="text-sm font-semibold">{c}</span>
+                                <button onClick={() => handleDelete(c)} className="text-red-500"><Trash2 className="w-4 h-4"/></button>
+                             </div>
+                             <div className="grid md:grid-cols-2 gap-2">
+                                <input className="border p-2 rounded text-sm" placeholder="Company Address" value={profile.address || ''} onChange={e => updateProfileField(c, 'address', e.target.value)} />
+                                <input className="border p-2 rounded text-sm" placeholder="Company Email" value={profile.email || ''} onChange={e => updateProfileField(c, 'email', e.target.value)} />
+                             </div>
+                             <div className="flex items-center gap-3">
+                                <input type="file" accept="image/*" onChange={e => handleStampUpload(c, e.target.files?.[0] || null)} className="text-xs" />
+                                {profile.stampImage && <img src={profile.stampImage} alt="stamp" className="h-10 w-auto border rounded bg-white p-1" />}
+                             </div>
                          </li>
-                    ))}
+                        );
+                    })}
                 </ul>
             </div>
         </div>
@@ -1147,20 +1221,55 @@ const ManageCompaniesModal = ({ isOpen, onClose, companies, onDataChange }: any)
 };
 
 const CopyAttendanceModal = ({ isOpen, onClose, onCopy }: any) => {
+    const [mode, setMode] = useState<'copy' | 'range'>('copy');
     const [source, setSource] = useState('');
     const [target, setTarget] = useState('');
+    const [rangeStart, setRangeStart] = useState('');
+    const [rangeEnd, setRangeEnd] = useState('');
+    const [rangeStatus, setRangeStatus] = useState<AttendanceStatus>(AttendanceStatus.PRESENT);
+
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
-                <h3 className="font-bold mb-4">Copy Daily Attendance</h3>
-                <div className="space-y-4 mb-4">
-                    <div><label className="block text-xs uppercase font-bold text-gray-500">Source Date</label><input type="date" className="w-full border p-2 rounded" value={source} onChange={e => setSource(e.target.value)} /></div>
-                    <div><label className="block text-xs uppercase font-bold text-gray-500">Target Date</label><input type="date" className="w-full border p-2 rounded" value={target} onChange={e => setTarget(e.target.value)} /></div>
+                <h3 className="font-bold mb-4">Attendance Tools</h3>
+
+                <div className="flex gap-2 mb-4 text-sm">
+                    <button onClick={() => setMode('copy')} className={`px-3 py-1.5 rounded border ${mode === 'copy' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : ''}`}>Copy Day</button>
+                    <button onClick={() => setMode('range')} className={`px-3 py-1.5 rounded border ${mode === 'range' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : ''}`}>Apply Range Status</button>
                 </div>
+
+                {mode === 'copy' ? (
+                    <div className="space-y-4 mb-4">
+                        <div><label className="block text-xs uppercase font-bold text-gray-500">Source Date</label><input type="date" className="w-full border p-2 rounded" value={source} onChange={e => setSource(e.target.value)} /></div>
+                        <div><label className="block text-xs uppercase font-bold text-gray-500">Target Date</label><input type="date" className="w-full border p-2 rounded" value={target} onChange={e => setTarget(e.target.value)} /></div>
+                    </div>
+                ) : (
+                    <div className="space-y-4 mb-4">
+                        <div className="text-xs text-gray-500">Example: 01/02/2026 to 28/02/2026</div>
+                        <div><label className="block text-xs uppercase font-bold text-gray-500">Start Date (DD/MM/YYYY or YYYY-MM-DD)</label><input className="w-full border p-2 rounded" placeholder="01/02/2026" value={rangeStart} onChange={e => setRangeStart(e.target.value)} /></div>
+                        <div><label className="block text-xs uppercase font-bold text-gray-500">End Date (DD/MM/YYYY or YYYY-MM-DD)</label><input className="w-full border p-2 rounded" placeholder="28/02/2026" value={rangeEnd} onChange={e => setRangeEnd(e.target.value)} /></div>
+                        <div>
+                            <label className="block text-xs uppercase font-bold text-gray-500">Status</label>
+                            <select className="w-full border p-2 rounded" value={rangeStatus} onChange={e => setRangeStatus(e.target.value as AttendanceStatus)}>
+                                <option value={AttendanceStatus.PRESENT}>Present</option>
+                                <option value={AttendanceStatus.ABSENT}>Absent</option>
+                                <option value={AttendanceStatus.SICK_LEAVE}>Sick Leave</option>
+                                <option value={AttendanceStatus.ANNUAL_LEAVE}>Annual Leave</option>
+                                <option value={AttendanceStatus.UNPAID_LEAVE}>Unpaid Leave</option>
+                                <option value={AttendanceStatus.EMERGENCY_LEAVE}>Emergency Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                )}
+
                  <div className="flex justify-end gap-2">
                     <button onClick={onClose} className="px-4 py-2 border rounded">Cancel</button>
-                    <button onClick={() => onCopy(source, target)} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Copy Records</button>
+                    {mode === 'copy' ? (
+                      <button onClick={() => onCopy({ mode, source, target })} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Copy Records</button>
+                    ) : (
+                      <button onClick={() => onCopy({ mode, rangeStart, rangeEnd, rangeStatus })} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold">Apply Range</button>
+                    )}
                 </div>
             </div>
         </div>
@@ -1486,6 +1595,65 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
             </div>
         </div>
     );
+
+};
+
+const EditLeaveRequestModal = ({ request, employees, onClose, onSave }: any) => {
+    const [req, setReq] = useState({ employeeId: '', startDate: '', endDate: '', type: AttendanceStatus.ANNUAL_LEAVE, reason: '' });
+
+    useEffect(() => {
+        if (request) {
+            setReq({
+                employeeId: request.employeeId,
+                startDate: request.startDate,
+                endDate: request.endDate,
+                type: request.type,
+                reason: request.reason || ''
+            });
+        }
+    }, [request]);
+
+    if (!request) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white p-8 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl text-gray-900">Modify Leave Request</h3>
+                    <button onClick={onClose}><XCircle className="w-6 h-6 text-gray-400 hover:text-gray-700"/></button>
+                </div>
+                <div className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+                        <select className="w-full p-2.5 border border-gray-300 rounded-lg bg-white" value={req.employeeId} onChange={e => setReq({...req, employeeId: e.target.value})}>
+                            {employees.filter((e:Employee) => e.active).map((e: Employee) => <option key={e.id} value={e.id}>{e.name} ({e.code})</option>)}
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label><input type="date" className="w-full p-2.5 border border-gray-300 rounded-lg" value={req.startDate} onChange={e => setReq({...req, startDate: e.target.value})} /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">End Date</label><input type="date" className="w-full p-2.5 border border-gray-300 rounded-lg" value={req.endDate} onChange={e => setReq({...req, endDate: e.target.value})} /></div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
+                        <select className="w-full p-2.5 border border-gray-300 rounded-lg bg-white" value={req.type} onChange={e => setReq({...req, type: e.target.value as any})}>
+                            <option value={AttendanceStatus.ANNUAL_LEAVE}>Annual Leave</option>
+                            <option value={AttendanceStatus.SICK_LEAVE}>Sick Leave</option>
+                            <option value={AttendanceStatus.UNPAID_LEAVE}>Unpaid Leave</option>
+                            <option value={AttendanceStatus.EMERGENCY_LEAVE}>Emergency Leave</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                        <textarea className="w-full p-2.5 border border-gray-300 rounded-lg h-24 resize-none" value={req.reason} onChange={e => setReq({...req, reason: e.target.value})} />
+                    </div>
+                    <div className="pt-4 flex gap-3">
+                        <button onClick={onClose} className="w-full py-2.5 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
+                        <button onClick={() => onSave(req)} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 const DeductionsView = ({ deductions, employees, onRefresh }: any) => {
@@ -1573,6 +1741,11 @@ const ReportsView = ({ employees, attendance, leaveRequests }: any) => {
         return acc;
     }, {});
 
+    const workingStatuses = [AttendanceStatus.PRESENT, AttendanceStatus.SICK_LEAVE, AttendanceStatus.ANNUAL_LEAVE, AttendanceStatus.UNPAID_LEAVE, AttendanceStatus.EMERGENCY_LEAVE, AttendanceStatus.PUBLIC_HOLIDAY, AttendanceStatus.WEEK_OFF];
+    const attendedCount = attendance.filter((r: AttendanceRecord) => workingStatuses.includes(r.status) && r.status !== AttendanceStatus.ABSENT).length;
+    const expectedCount = activeStaff * new Date().getDate();
+    const attendanceRate = expectedCount > 0 ? Math.min(100, (attendedCount / expectedCount) * 100) : 0;
+
     const handlePrint = () => window.print();
 
     return (
@@ -1602,8 +1775,8 @@ const ReportsView = ({ employees, attendance, leaveRequests }: any) => {
                  </div>
                  <div className="bg-white p-6 rounded-xl shadow-sm border">
                      <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Avg Attendance Rate</h3>
-                     <p className="text-3xl font-bold text-blue-600">92%</p>
-                     <p className="text-xs text-gray-400 mt-1">Based on last 30 days</p>
+                     <p className="text-3xl font-bold text-blue-600">{attendanceRate.toFixed(1)}%</p>
+                     <p className="text-xs text-gray-400 mt-1">Real-time from current attendance records</p>
                  </div>
             </div>
 
@@ -1711,6 +1884,7 @@ const App: React.FC = () => {
   
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
+  const [companyProfiles, setCompanyProfiles] = useState<CompanyProfile[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [deductions, setDeductions] = useState<DeductionRecord[]>([]);
@@ -1730,6 +1904,7 @@ const App: React.FC = () => {
   const [showProfile, setShowProfile] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [showRehire, setShowRehire] = useState<Employee | null>(null);
+  const [editLeaveRequest, setEditLeaveRequest] = useState<LeaveRequest | null>(null);
   const [showExEmployeeDetails, setShowExEmployeeDetails] = useState<Employee | null>(null);
   const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
   const [viewEmployee, setViewEmployee] = useState<Employee | null>(null);
@@ -1753,6 +1928,7 @@ const App: React.FC = () => {
     const allEmps = getEmployees();
     setEmployees(allEmps);
     setCompanies(getCompanies());
+    setCompanyProfiles(getCompanyProfiles());
     setLeaveRequests(getLeaveRequests());
     setDeductions(getDeductions());
     const start = formatDateLocal(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
@@ -1839,9 +2015,23 @@ const App: React.FC = () => {
       }
   };
 
-  const handleCopyAttendance = (source: string, target: string) => {
-      const count = copyDayAttendance(source, target, currentUser?.username || 'Admin');
-      alert(`Copied ${count} records.`);
+  const handleCopyAttendance = (payload: any) => {
+      if (payload.mode === 'copy') {
+          const count = copyDayAttendance(payload.source, payload.target, currentUser?.username || 'Admin');
+          alert(`Copied ${count} records.`);
+      } else {
+          const start = parseUiDateToIso(payload.rangeStart);
+          const end = parseUiDateToIso(payload.rangeEnd);
+          const dates = getDatesInRange(start, end);
+          if (!dates.length) return alert('Invalid date range. Use DD/MM/YYYY or YYYY-MM-DD.');
+
+          employees.filter(e => e.active).forEach(emp => {
+              dates.forEach((date) => {
+                  logAttendance(emp.id, payload.rangeStatus, date, 0, undefined, currentUser?.username || 'Admin', `Bulk range: ${formatIsoToUiDate(start)} to ${formatIsoToUiDate(end)}`);
+              });
+          });
+          alert(`Applied ${payload.rangeStatus} for ${dates.length} day(s) to ${employees.filter(e => e.active).length} active employee(s).`);
+      }
       setShowCopyModal(false);
       handleRefresh();
   };
@@ -1851,131 +2041,49 @@ const App: React.FC = () => {
       handleRefresh();
   };
 
+  const handleLeaveEditSave = (data: any) => {
+      if (!editLeaveRequest) return;
+      const updated = updateLeaveRequest(editLeaveRequest.id, data);
+      if (updated?.status === LeaveStatus.APPROVED) {
+          updateLeaveRequestStatus(editLeaveRequest.id, LeaveStatus.APPROVED, currentUser?.name || currentUser?.username);
+      }
+      setEditLeaveRequest(null);
+      handleRefresh();
+  };
+
   const handleEditSave = (data: Employee) => {
       saveEmployee(data);
       setEditEmployee(null);
       handleRefresh();
   };
 
-  // --- Print All Payslips Logic ---
+  // --- Download All Payslips Logic ---
   const handlePrintAllPayslips = () => {
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return alert("Please allow popups to print.");
-
-      // Calculate data for all active visible employees
-      const payslipsData = filteredEmployees.filter(e => e.active).map(emp => {
+      const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+      const rows = filteredEmployees.filter(e => e.active).map(emp => {
+          const data = calculatePayroll(emp, attendance, deductions, currentDate.getMonth(), currentDate.getFullYear());
           return {
-              emp,
-              data: calculatePayroll(emp, attendance, deductions, currentDate.getMonth(), currentDate.getFullYear())
+              Code: emp.code,
+              Name: emp.name,
+              Company: emp.company,
+              Basic: data.basic,
+              Housing: data.housing,
+              Transport: data.transport,
+              AirTicket: data.airTicket,
+              LeaveSalary: data.leaveSalary,
+              Other: data.other,
+              Overtime: data.overtimePay,
+              HolidayPay: data.holidayPay,
+              WeekOffPay: data.weekOffPay,
+              Deductions: data.totalDeductions,
+              NetSalary: data.netSalary
           };
       });
-      
-      const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-      const htmlContent = `
-        <html>
-        <head>
-            <title>Payslips - ${monthName}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>
-                @media print {
-                    .page-break { page-break-after: always; }
-                    body { -webkit-print-color-adjust: exact; }
-                }
-                body { font-family: 'Inter', sans-serif; background: #fff; }
-            </style>
-        </head>
-        <body>
-            ${payslipsData.map(({ emp, data }) => `
-                <div class="max-w-2xl mx-auto p-8 border-b mb-8 page-break">
-                    <div class="text-center border-b pb-6 mb-6">
-                        <h1 class="text-2xl font-bold uppercase text-gray-900">${emp.company}</h1>
-                        <p class="text-sm text-gray-500">Payslip for the month of ${monthName}</p>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-8 mb-8">
-                        <div>
-                            <div class="text-xs text-gray-500 uppercase font-bold mb-1">Employee Details</div>
-                            <div class="grid grid-cols-2 gap-y-2 text-sm">
-                                <span class="text-gray-600">Name:</span><span class="font-bold">${emp.name}</span>
-                                <span class="text-gray-600">Code:</span><span class="font-mono">${emp.code}</span>
-                                <span class="text-gray-600">Designation:</span><span>${emp.designation}</span>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-xs text-gray-500 uppercase font-bold mb-1">Bank Details</div>
-                            <div class="grid grid-cols-2 gap-y-2 text-sm">
-                                <span class="text-gray-600">Bank Name:</span><span>${emp.bankName || '-'}</span>
-                                <span class="text-gray-600">IBAN:</span><span class="font-mono">${emp.iban || '-'}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <table class="w-full text-sm border border-gray-200 mb-6">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="p-2 border text-left">Earnings</th>
-                                <th class="p-2 border text-right">Amount</th>
-                                <th class="p-2 border text-left">Deductions</th>
-                                <th class="p-2 border text-right">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td class="p-2 border">Basic Salary</td><td class="p-2 border text-right">${data.basic.toLocaleString()}</td>
-                                <td class="p-2 border">Unpaid Days (${data.unpaidDaysCount})</td><td class="p-2 border text-right text-red-600">${data.unpaidDeductionAmount > 0 ? data.unpaidDeductionAmount.toLocaleString(undefined, {maximumFractionDigits: 2}) : '0.00'}</td>
-                            </tr>
-                            <tr>
-                                <td class="p-2 border">Housing Allowance</td><td class="p-2 border text-right">${data.housing.toLocaleString()}</td>
-                                <td class="p-2 border"></td><td class="p-2 border"></td>
-                            </tr>
-                            <tr>
-                                <td class="p-2 border">Transport Allowance</td><td class="p-2 border text-right">${data.transport.toLocaleString()}</td>
-                                <td class="p-2 border"></td><td class="p-2 border"></td>
-                            </tr>
-                            <tr>
-                                <td class="p-2 border">Air Ticket</td><td class="p-2 border text-right">${data.airTicket.toLocaleString()}</td>
-                                <td class="p-2 border"></td><td class="p-2 border"></td>
-                            </tr>
-                            <tr>
-                                <td class="p-2 border">Leave Salary</td><td class="p-2 border text-right">${data.leaveSalary.toLocaleString()}</td>
-                                <td class="p-2 border"></td><td class="p-2 border"></td>
-                            </tr>
-                             <tr>
-                                <td class="p-2 border">Other Allowances</td><td class="p-2 border text-right">${data.other.toLocaleString()}</td>
-                                <td class="p-2 border"></td><td class="p-2 border"></td>
-                            </tr>
-                            <tr>
-                                <td class="p-2 border text-blue-600">Overtime (${data.totalOTHours})</td><td class="p-2 border text-right text-blue-600">${data.overtimePay.toLocaleString()}</td>
-                                <td class="p-2 border"></td><td class="p-2 border"></td>
-                            </tr>
-                            ${data.holidayPay > 0 ? `<tr><td class="p-2 border text-blue-600">Holiday Pay</td><td class="p-2 border text-right text-blue-600">${data.holidayPay.toLocaleString()}</td><td class="p-2 border"></td><td class="p-2 border"></td></tr>` : ''}
-                            ${data.weekOffPay > 0 ? `<tr><td class="p-2 border text-blue-600">WeekOff Pay</td><td class="p-2 border text-right text-blue-600">${data.weekOffPay.toLocaleString()}</td><td class="p-2 border"></td><td class="p-2 border"></td></tr>` : ''}
-                            ${data.variableDeductions.map((d: any) => `<tr><td class="p-2 border"></td><td class="p-2 border"></td><td class="p-2 border text-red-600">${d.type}</td><td class="p-2 border text-right text-red-600">${d.amount.toLocaleString()}</td></tr>`).join('')}
-                            <tr class="font-bold bg-gray-50">
-                                <td class="p-2 border">Total Earnings</td><td class="p-2 border text-right">${(data.gross + data.totalAdditions).toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
-                                <td class="p-2 border">Total Deductions</td><td class="p-2 border text-right">${data.totalDeductions.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="flex justify-end">
-                        <div class="bg-gray-900 text-white p-4 rounded-lg min-w-[200px]">
-                            <div class="text-xs text-gray-400 uppercase mb-1">Net Pay</div>
-                            <div class="text-xl font-bold">AED ${data.netSalary.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
-                        </div>
-                    </div>
-                </div>
-            `).join('')}
-            <script>
-                window.onload = () => { window.print(); }
-            </script>
-        </body>
-        </html>
-      `;
-
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, 'Payslips');
+      XLSX.writeFile(wb, `payslips_${monthName.replace(/\s+/g, '_')}.xlsx`);
   };
 
   // Calculate Payroll Totals using useMemo and unified calculator
@@ -2061,7 +2169,7 @@ const App: React.FC = () => {
                { id: 'leave', icon: FileText, label: 'Leave Management' },
                { id: 'payroll', icon: DollarSign, label: 'Payroll Register' },
                { id: 'reports', icon: BarChart3, label: 'Reports' },
-               { id: 'about', icon: AlertCircle, label: 'About' }
+               ...(currentUser.role === UserRole.CREATOR ? [{ id: 'about', icon: AlertCircle, label: 'About' }] : [])
            ].map(tab => (
                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-4 text-sm font-medium flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
                    <tab.icon className="w-4 h-4" /> {tab.label}
@@ -2421,6 +2529,7 @@ const App: React.FC = () => {
                                           <td className="p-4 text-xs text-gray-500">{req.createdBy || '-'}</td>
                                           <td className="p-4 text-xs text-gray-500">{req.approvedBy || '-'}</td>
                                           <td className="p-4 text-right flex justify-end gap-2">
+                                              <button onClick={() => setEditLeaveRequest(req)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit className="w-4 h-4"/></button>
                                               {req.status === LeaveStatus.PENDING && (
                                                   <>
                                                       <button onClick={() => handleLeaveAction(req.id, LeaveStatus.APPROVED)} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check className="w-4 h-4"/></button>
@@ -2531,7 +2640,7 @@ const App: React.FC = () => {
           )}
           
           {activeTab === 'reports' && <ReportsView employees={employees} attendance={attendance} leaveRequests={leaveRequests} />}
-          {activeTab === 'about' && <AboutView currentUser={currentUser} />}
+          {currentUser.role === UserRole.CREATOR && activeTab === 'about' && <AboutView currentUser={currentUser} />}
 
        </main>
 
@@ -2571,6 +2680,7 @@ const App: React.FC = () => {
                 onClose={() => setShowPayslip(null)} 
                 allAttendance={attendance}
                 allDeductions={deductions}
+                companyProfiles={companyProfiles}
            />
        )}
        {showHolidays && (
@@ -2586,7 +2696,7 @@ const App: React.FC = () => {
            <ProfileModal isOpen={true} onClose={() => setShowProfile(false)} currentUser={currentUser} onUpdate={(user: SystemUser) => { setCurrentUser(user); handleRefresh(); }} />
        )}
        {showManageCompanies && (
-           <ManageCompaniesModal isOpen={true} onClose={() => setShowManageCompanies(false)} companies={companies} onDataChange={setCompanies} />
+           <ManageCompaniesModal isOpen={true} onClose={() => setShowManageCompanies(false)} companies={companies} profiles={companyProfiles} onDataChange={setCompanies} onProfileChange={setCompanyProfiles} />
        )}
        {showExEmployeeDetails && (
            <ExEmployeeDetailsModal employee={showExEmployeeDetails} onClose={() => setShowExEmployeeDetails(null)} />
@@ -2596,6 +2706,9 @@ const App: React.FC = () => {
        )}
        {showLeaveModal && (
            <LeaveRequestModal employees={employees} onClose={() => setShowLeaveModal(false)} onSave={handleRefresh} currentUser={currentUser} />
+       )}
+       {editLeaveRequest && (
+           <EditLeaveRequestModal request={editLeaveRequest} employees={employees} onClose={() => setEditLeaveRequest(null)} onSave={handleLeaveEditSave} />
        )}
        {showRehire && (
            <RehireModal employee={showRehire} onClose={() => setShowRehire(null)} onConfirm={(id, date, reason) => { rehireEmployee(id, date, reason); setShowRehire(null); handleRefresh(); }} />
