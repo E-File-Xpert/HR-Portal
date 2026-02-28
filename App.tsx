@@ -703,7 +703,7 @@ const EditEmployeeModal = ({ employee, companies, onClose, onSave }: any) => {
                              <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Staff Type</label>
                                 <select className="w-full p-2 border rounded text-sm" value={data.type} onChange={e => setData({...data, type: e.target.value as any})}>
-                                    <option value={StaffType.WORKER}>Worker</option>
+                                    <option value={StaffType.WORKER}>Branch Staff</option>
                                     <option value={StaffType.OFFICE}>Office Staff</option>
                                 </select>
                             </div>
@@ -1010,6 +1010,8 @@ const HolidayManagementModal = ({ isOpen, onClose }: any) => {
 };
 
 // --- Updated UserManagementModal with Hierarchy Logic ---
+const getRoleLabel = (role: UserRole) => (role === UserRole.ENGINEER ? 'Staff' : role);
+
 const UserManagementModal = ({ isOpen, onClose, currentUser }: any) => {
     const [users, setUsers] = useState<SystemUser[]>(getSystemUsers());
     const [newUser, setNewUser] = useState<SystemUser>({ username: '', password: '', name: '', role: UserRole.HR, active: true, permissions: { canViewDashboard: true, canManageEmployees: false, canViewDirectory: true, canManageAttendance: true, canViewTimesheet: true, canManageLeaves: false, canViewPayroll: false, canManagePayroll: false, canViewReports: false, canManageUsers: false, canManageSettings: false }});
@@ -1078,7 +1080,7 @@ const UserManagementModal = ({ isOpen, onClose, currentUser }: any) => {
                     <input className="border p-2 rounded" placeholder="Full Name" value={newUser.name} onChange={e => setNewUser({...newUser, name: e.target.value})} />
                     <select className="border p-2 rounded" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as any})} disabled={currentUser.role !== UserRole.CREATOR && currentUser.role !== UserRole.ADMIN}>
                         {Object.values(UserRole).filter(r => currentUser.role === UserRole.CREATOR || r !== UserRole.CREATOR).map(r => (
-                            <option key={r} value={r}>{r}</option>
+                            <option key={r} value={r}>{getRoleLabel(r as UserRole)}</option>
                         ))}
                     </select>
                     <div className="col-span-2 flex justify-end">
@@ -1093,7 +1095,7 @@ const UserManagementModal = ({ isOpen, onClose, currentUser }: any) => {
                                 <tr key={u.username} className="border-b">
                                     <td className="p-2">{u.username}</td>
                                     <td className="p-2">{u.name}</td>
-                                    <td className="p-2">{u.role}</td>
+                                    <td className="p-2">{getRoleLabel(u.role)}</td>
                                     <td className="p-2 flex gap-2">
                                         <button onClick={() => handleEdit(u)} className="text-blue-600 disabled:opacity-30" disabled={currentUser.role === UserRole.ADMIN && u.role === UserRole.CREATOR}><Edit className="w-4 h-4"/></button>
                                         <button onClick={() => handleDelete(u.username, u.role)} className="text-red-600 disabled:opacity-30" disabled={u.role === UserRole.CREATOR}><Trash2 className="w-4 h-4"/></button>
@@ -1526,7 +1528,7 @@ const OnboardingWizard = ({ companies, onClose, onComplete }: any) => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Staff Type</label>
                                     <select className="w-full p-2.5 border rounded-lg bg-white" value={emp.type} onChange={e => setEmp({...emp, type: e.target.value as any})}>
-                                        <option value={StaffType.WORKER}>Worker</option>
+                                        <option value={StaffType.WORKER}>Branch Staff</option>
                                         <option value={StaffType.OFFICE}>Office Staff</option>
                                     </select>
                                 </div>
