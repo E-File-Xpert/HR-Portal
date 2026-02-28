@@ -1,5 +1,5 @@
 
-import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole, AboutData, DeductionRecord } from "../types";
+import { Employee, AttendanceRecord, AttendanceStatus, StaffType, ShiftType, LeaveRequest, LeaveStatus, PublicHoliday, OffboardingDetails, SystemUser, UserRole, AboutData, DeductionRecord, CompanyProfile } from "../types";
 import { MOCK_EMPLOYEES, STORAGE_KEYS, DEFAULT_COMPANIES, DEFAULT_ADMIN, CREATOR_USER, DEFAULT_ABOUT_DATA } from "../constants";
 
 const LEGACY_COMPANY_NAME_MAP: Record<string, string> = {
@@ -27,6 +27,10 @@ const initStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.COMPANIES)) {
       localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(DEFAULT_COMPANIES));
   }
+  if (!localStorage.getItem(STORAGE_KEYS.COMPANY_PROFILES)) {
+      const defaults: CompanyProfile[] = DEFAULT_COMPANIES.map(name => ({ name }));
+      localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILES, JSON.stringify(defaults));
+  }
   if (!localStorage.getItem(STORAGE_KEYS.ABOUT)) {
       localStorage.setItem(STORAGE_KEYS.ABOUT, JSON.stringify(DEFAULT_ABOUT_DATA));
   }
@@ -42,6 +46,20 @@ const initStorage = () => {
       const uniqueCompanies = Array.from(new Set([...migratedCompanies, ...DEFAULT_COMPANIES]));
       if (JSON.stringify(uniqueCompanies) !== JSON.stringify(currentCompanies)) {
           localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(uniqueCompanies));
+      }
+  }
+
+  const companyProfileData = localStorage.getItem(STORAGE_KEYS.COMPANY_PROFILES);
+  if (companyProfileData) {
+      const profiles: CompanyProfile[] = JSON.parse(companyProfileData);
+      const mapped = profiles.map(p => ({ ...p, name: LEGACY_COMPANY_NAME_MAP[p.name] || p.name }));
+      const byName = new Map(mapped.map(p => [p.name, p]));
+      DEFAULT_COMPANIES.forEach(name => {
+          if (!byName.has(name)) byName.set(name, { name });
+      });
+      const merged = Array.from(byName.values());
+      if (JSON.stringify(merged) !== JSON.stringify(profiles)) {
+          localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILES, JSON.stringify(merged));
       }
   }
 
@@ -519,24 +537,43 @@ export const saveLeaveRequest = (request: Omit<LeaveRequest, 'id' | 'status' | '
   return newRequest;
 };
 
+export const updateLeaveRequest = (id: string, payload: Partial<Omit<LeaveRequest, 'id' | 'appliedOn' | 'createdBy'>> ) => {
+  const requests = getLeaveRequests();
+  const index = requests.findIndex(r => r.id === id);
+  if (index === -1) return null;
+
+  requests[index] = { ...requests[index], ...payload };
+  localStorage.setItem(STORAGE_KEYS.LEAVE_REQUESTS, JSON.stringify(requests));
+  return requests[index];
+};
+
 export const updateLeaveRequestStatus = (id: string, status: LeaveStatus, approvedBy?: string) => {
   const requests = getLeaveRequests();
   const index = requests.findIndex(r => r.id === id);
   if (index === -1) return;
 
   requests[index].status = status;
-  if (approvedBy && status === LeaveStatus.APPROVED) {
+  if (approvedBy) {
       requests[index].approvedBy = approvedBy;
   }
-  
+
   localStorage.setItem(STORAGE_KEYS.LEAVE_REQUESTS, JSON.stringify(requests));
+
+  const req = requests[index];
+  const start = new Date(req.startDate);
+  const end = new Date(req.endDate);
+
+  if (status !== LeaveStatus.APPROVED) {
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      deleteAttendanceRecord(req.employeeId, dateStr);
+    }
+    return;
+  }
 
   // If Approved, auto-update the timesheet attendance AND Leave Balance
   if (status === LeaveStatus.APPROVED) {
-    const req = requests[index];
-    const start = new Date(req.startDate);
-    const end = new Date(req.endDate);
-    
+
     // 1. Update Timesheet
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
        const dateStr = d.toISOString().split('T')[0];
@@ -604,6 +641,12 @@ export const addCompany = (name: string): string[] => {
     if (!companies.includes(name)) {
         companies.push(name);
         localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(companies));
+
+        const profiles = getCompanyProfiles();
+        if (!profiles.some(p => p.name === name)) {
+            profiles.push({ name });
+            localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILES, JSON.stringify(profiles));
+        }
     }
     return companies;
 }
@@ -614,6 +657,15 @@ export const updateCompany = (oldName: string, newName: string): string[] => {
     if (index !== -1) {
         companies[index] = newName;
         localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(companies));
+
+        const profiles = getCompanyProfiles();
+        const pIndex = profiles.findIndex(p => p.name === oldName);
+        if (pIndex !== -1) {
+            profiles[pIndex].name = newName;
+        } else {
+            profiles.push({ name: newName });
+        }
+        localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILES, JSON.stringify(profiles));
     }
     return companies;
 }
@@ -622,7 +674,34 @@ export const deleteCompany = (name: string): string[] => {
     let companies = getCompanies();
     companies = companies.filter(c => c !== name);
     localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(companies));
+
+    const profiles = getCompanyProfiles().filter(p => p.name !== name);
+    localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILES, JSON.stringify(profiles));
+
     return companies;
+}
+
+export const getCompanyProfiles = (): CompanyProfile[] => {
+    initStorage();
+    const data = localStorage.getItem(STORAGE_KEYS.COMPANY_PROFILES);
+    const profiles: CompanyProfile[] = data ? JSON.parse(data) : [];
+    const byName = new Map(profiles.map(p => [p.name, p]));
+    getCompanies().forEach(name => {
+        if (!byName.has(name)) byName.set(name, { name });
+    });
+    return Array.from(byName.values());
+}
+
+export const saveCompanyProfile = (profile: CompanyProfile): CompanyProfile[] => {
+    const profiles = getCompanyProfiles();
+    const index = profiles.findIndex(p => p.name === profile.name);
+    if (index >= 0) {
+        profiles[index] = profile;
+    } else {
+        profiles.push(profile);
+    }
+    localStorage.setItem(STORAGE_KEYS.COMPANY_PROFILES, JSON.stringify(profiles));
+    return profiles;
 }
 
 export const getSystemUsers = (): SystemUser[] => {

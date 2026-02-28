@@ -136,6 +136,13 @@ export interface PublicHoliday {
   name: string;
 }
 
+export interface CompanyProfile {
+  name: string;
+  address?: string;
+  email?: string;
+  stampImage?: string; // Base64 image
+}
+
 export interface AboutData {
     name: string;
     title: string;
